@@ -155,7 +155,7 @@ TrainingLoad is recalculated once after all orphans are processed (not per-activ
 ### Key Backend Entities
 
 **Activity** — Raw record of a Garmin activity as downloaded during sync. Holds the original TCX file and the minimal indexed fields needed for list and calendar queries. Everything else is derived from rawTcx or computed into Ride.
-- id, externalId (for Garmin dedup), name, startTime, lastSyncTime
+- id, externalId (for Garmin dedup), name, startTime
 - rawTcx (TEXT, full TCX file — source of truth)
 
 **Ride** — Computed cycling metrics derived by parsing the Activity's TCX. One Ride per Activity. Contains all values needed for analysis, charting, and PMC calculations.
@@ -228,7 +228,6 @@ CREATE TABLE activity (
     external_id TEXT UNIQUE NOT NULL,  -- Garmin activity ID, used for dedup
     name TEXT,
     start_time TEXT NOT NULL,
-    last_sync_time TEXT,
     raw_tcx TEXT NOT NULL              -- source of truth; all metrics derived from here
 );
 
@@ -567,7 +566,8 @@ services:
       - AI_PROVIDER=ollama    # or anthropic
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      # No Garmin credentials here — authenticate via POST /api/sync/authenticate after first start
+      - GARMIN_EMAIL=your@email.com
+      - GARMIN_PASSWORD=yourpassword
 ```
 
 ### Dockerfile (multi-stage)
@@ -602,15 +602,13 @@ CMD ["java", "-jar", "app.jar"]
 ### Local Dev
 1. `mvn spring-boot:run` (backend on :8080)
 2. `ng serve` (frontend on :4200, proxies API to :8080)
-3. Garmin sync fires automatically every 6 h via `@Scheduled`; trigger manually via `POST /api/sync/trigger`
+3. Garmin sync fires automatically every 6 h via `@Scheduled`; trigger manually via `POST /api/sync/trigger`. Auth is transparent — credentials come from `GARMIN_EMAIL`/`GARMIN_PASSWORD` env vars, re-auth happens automatically
 
 ### API Endpoints (Phase 1)
 ```
 GET    /api/activities              - list activities
 GET    /api/activities/{id}         - activity detail
-POST   /api/sync/authenticate        - SSO login (credentials in body, never stored; DI OAuth2 tokens saved to DB)
-POST   /api/sync/trigger             - trigger Garmin sync (requires valid session)
-GET    /api/sync/status              - session validity + last sync time
+POST   /api/sync/trigger             - trigger a manual Garmin sync
 GET    /api/calendar                - calendar data
 GET    /api/trends/{metric}          - trend data
 GET    /api/pmc                      - CTL/ATL/TSB time series (query params: from, to)

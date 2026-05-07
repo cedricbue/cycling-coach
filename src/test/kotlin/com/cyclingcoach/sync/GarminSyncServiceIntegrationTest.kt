@@ -1,8 +1,8 @@
 package com.cyclingcoach.sync
 
 import com.cyclingcoach.AbstractApplicationIntegrationTest
-import com.cyclingcoach.generated.jooq.tables.references.ACTIVITY
 import com.github.tomakehurst.wiremock.client.WireMock.aResponse
+import com.github.tomakehurst.wiremock.client.WireMock.equalTo
 import com.github.tomakehurst.wiremock.client.WireMock.get
 import com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor
 import com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo
@@ -19,10 +19,7 @@ class GarminSyncServiceIntegrationTest : AbstractApplicationIntegrationTest() {
     private lateinit var garminSyncService: GarminSyncService
 
     @BeforeEach
-    fun resetState() {
-        dsl.deleteFrom(ACTIVITY).execute()
-        garminTokenStore.deleteAll()
-        // Re-authenticate so each test starts with a fresh valid session
+    fun authenticate() {
         garminSyncService.authenticate("test@example.com", "test-password")
     }
 
@@ -121,10 +118,63 @@ class GarminSyncServiceIntegrationTest : AbstractApplicationIntegrationTest() {
     }
 
     @Test
-    fun `syncActivities aborts gracefully when no valid session exists`() {
-        garminTokenStore.deleteAll()
+    fun `syncActivities fetches multiple pages until last page is smaller than limit`() {
+        val page1 =
+            (1..100)
+                .joinToString(",") { i ->
+                    """{"activityId":$i,"activityName":"Ride $i","startTimeGMT":"2024-01-01 08:00:00","activityType":{"typeKey":"cycling"}}"""
+                }.let { "[$it]" }
+        val page2 =
+            """[{"activityId":101,"activityName":"Last Ride","startTimeGMT":"2024-01-02 08:00:00","activityType":{"typeKey":"cycling"}}]"""
 
-        // Should not throw — just log and return
+        wireMock.stubFor(
+            get(urlPathMatching("/activitylist-service/activities/search/activities"))
+                .withQueryParam("start", equalTo("0"))
+                .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "application/json").withBody(page1)),
+        )
+        wireMock.stubFor(
+            get(urlPathMatching("/activitylist-service/activities/search/activities"))
+                .withQueryParam("start", equalTo("100"))
+                .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "application/json").withBody(page2)),
+        )
+        (1..101).forEach { i -> stubTcxDownload(i.toLong(), minimalTcx()) }
+
+        garminSyncService.syncActivities()
+
+        assertThat(activityRepository.existsByExternalId("1")).isTrue()
+        assertThat(activityRepository.existsByExternalId("100")).isTrue()
+        assertThat(activityRepository.existsByExternalId("101")).isTrue()
+    }
+
+    @Test
+    fun `syncActivities uses latest stored activity start time as since on next sync`() {
+        stubActivityList(
+            """[{"activityId":200,"activityName":"Base Ride","startTimeGMT":"2024-06-01 08:00:00","activityType":{"typeKey":"cycling"}}]""",
+        )
+        stubTcxDownload(200L, minimalTcx())
+        garminSyncService.syncActivities()
+
+        // Second sync — verify startDate query param matches the stored activity's date
+        wireMock.stubFor(
+            get(urlPathMatching("/activitylist-service/activities/search/activities"))
+                .withQueryParam("startDate", equalTo("2024-06-01"))
+                .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "application/json").withBody("[]")),
+        )
+
+        garminSyncService.syncActivities()
+
+        wireMock.verify(
+            getRequestedFor(urlPathMatching("/activitylist-service/activities/search/activities"))
+                .withQueryParam("startDate", equalTo("2024-06-01")),
+        )
+    }
+
+    @Test
+    fun `syncActivities re-authenticates when session is missing then runs sync`() {
+        garminTokenStore.deleteAll()
+        stubActivityList("[]")
+
+        // Should re-auth via stored credentials and complete without throwing
         garminSyncService.syncActivities()
     }
 

@@ -3,6 +3,8 @@ package com.cyclingcoach.client.garmin
 import com.cyclingcoach.AbstractApplicationIntegrationTest
 import com.github.tomakehurst.wiremock.client.WireMock.aResponse
 import com.github.tomakehurst.wiremock.client.WireMock.equalTo
+import com.github.tomakehurst.wiremock.client.WireMock.get
+import com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor
 import com.github.tomakehurst.wiremock.client.WireMock.post
 import com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor
 import com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo
@@ -118,6 +120,29 @@ class GarminClientIntegrationTest : AbstractApplicationIntegrationTest() {
         assertThatThrownBy { garminClient.login("mfa@user.com", "secret") }
             .isInstanceOf(GarminMfaRequiredException::class.java)
             .hasMessageContaining("MFA")
+    }
+
+    @Test
+    fun `getActivities forwards start offset in request`() {
+        garminClient.login("user@example.com", "secret")
+        wireMock.stubFor(
+            get(urlPathMatching("/activitylist-service/activities/search/activities"))
+                .withQueryParam("start", equalTo("50"))
+                .willReturn(
+                    aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("[]"),
+                ),
+        )
+
+        val result = garminClient.getActivities(start = 50)
+
+        assertThat(result).isEmpty()
+        wireMock.verify(
+            getRequestedFor(urlPathMatching("/activitylist-service/activities/search/activities"))
+                .withQueryParam("start", equalTo("50")),
+        )
     }
 
     @Test

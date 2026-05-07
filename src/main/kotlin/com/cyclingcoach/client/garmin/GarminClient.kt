@@ -24,7 +24,10 @@ class GarminClient(
 
     // ── Authentication ──────────────────────────────────────────────────────────
 
-    fun login(username: String, password: String): GarminTokens {
+    fun login(
+        username: String,
+        password: String,
+    ): GarminTokens {
         credentials = username to password
         val tokens = auth.authenticate(username, password)
         tokenStore.save(tokens)
@@ -46,10 +49,15 @@ class GarminClient(
 
     // ── API: Activities ─────────────────────────────────────────────────────────
 
-    fun getActivities(since: LocalDate? = null, limit: Int = 100): List<GarminActivity> {
+    fun getActivities(
+        since: LocalDate? = null,
+        start: Int = 0,
+        limit: Int = 100,
+    ): List<GarminActivity> {
         val sinceDate = since?.toString() ?: LocalDate.now().minusDays(365).toString()
-        val url = "${config.apiBaseUrl}/activitylist-service/activities/search/activities" +
-            "?start=0&limit=$limit&startDate=$sinceDate"
+        val url =
+            "${config.apiBaseUrl}/activitylist-service/activities/search/activities" +
+                "?start=$start&limit=$limit&startDate=$sinceDate"
 
         val body = authenticatedGet(url)
         if (body.isBlank()) return emptyList()
@@ -65,8 +73,9 @@ class GarminClient(
     // ── Internal: authenticated requests with auto-refresh/reauth ───────────────
 
     private fun authenticatedGet(url: String): String {
-        val tokens = resolveTokens()
-            ?: throw GarminAuthException("No valid Garmin session available")
+        val tokens =
+            resolveTokens()
+                ?: throw GarminAuthException("No valid Garmin session available")
 
         return try {
             http.get(url, authHeaders(tokens))
@@ -74,8 +83,9 @@ class GarminClient(
             if (e.statusCode !in REAUTH_STATUS_CODES) throw e
 
             log.warn("Garmin returned {} — re-authenticating and retrying", e.statusCode)
-            val refreshed = resolveTokens(forceRefresh = true)
-                ?: throw GarminAuthException("Re-authentication failed")
+            val refreshed =
+                resolveTokens(forceRefresh = true)
+                    ?: throw GarminAuthException("Re-authentication failed")
 
             try {
                 http.get(url, authHeaders(refreshed))
@@ -104,10 +114,11 @@ class GarminClient(
     }
 
     private fun tryReauthenticate(): GarminTokens? {
-        val (username, password) = credentials ?: run {
-            log.error("No stored credentials — cannot re-authenticate")
-            return null
-        }
+        val (username, password) =
+            credentials ?: run {
+                log.error("No stored credentials — cannot re-authenticate")
+                return null
+            }
         return try {
             login(username, password)
         } catch (e: Exception) {
@@ -116,13 +127,15 @@ class GarminClient(
         }
     }
 
-    private fun authHeaders(tokens: GarminTokens): Map<String, String> = mapOf(
-        "Authorization" to "Bearer ${tokens.accessToken}",
-        "User-Agent" to "GCM-Android-5.23",
-        "X-Garmin-User-Agent" to "com.garmin.android.apps.connectmobile/5.23; ; Google/sdk_gphone64_arm64/google; Android/33; Dalvik/2.1.0",
-        "Accept" to "application/json, text/plain, */*",
-        "Accept-Language" to "en-US,en;q=0.9",
-    )
+    private fun authHeaders(tokens: GarminTokens): Map<String, String> =
+        mapOf(
+            "Authorization" to "Bearer ${tokens.accessToken}",
+            "User-Agent" to "GCM-Android-5.23",
+            "X-Garmin-User-Agent" to
+                "com.garmin.android.apps.connectmobile/5.23; ; Google/sdk_gphone64_arm64/google; Android/33; Dalvik/2.1.0",
+            "Accept" to "application/json, text/plain, */*",
+            "Accept-Language" to "en-US,en;q=0.9",
+        )
 
     // ── JSON parsing (no Jackson dependency) ────────────────────────────────────
 
@@ -130,21 +143,28 @@ class GarminClient(
         val trimmed = json.trim()
 
         // Determine if we have an array or an object with "activityList" key
-        val arrayJson = when {
-            trimmed.startsWith("[") -> trimmed
-            trimmed.contains("\"activityList\"") -> {
-                val start = trimmed.indexOf('[')
-                val end = trimmed.lastIndexOf(']')
-                if (start >= 0 && end > start) trimmed.substring(start, end + 1) else {
+        val arrayJson =
+            when {
+                trimmed.startsWith("[") -> {
+                    trimmed
+                }
+
+                trimmed.contains("\"activityList\"") -> {
+                    val start = trimmed.indexOf('[')
+                    val end = trimmed.lastIndexOf(']')
+                    if (start >= 0 && end > start) {
+                        trimmed.substring(start, end + 1)
+                    } else {
+                        log.warn("Unexpected activity list response shape (first 200): {}", trimmed.take(200))
+                        return emptyList()
+                    }
+                }
+
+                else -> {
                     log.warn("Unexpected activity list response shape (first 200): {}", trimmed.take(200))
                     return emptyList()
                 }
             }
-            else -> {
-                log.warn("Unexpected activity list response shape (first 200): {}", trimmed.take(200))
-                return emptyList()
-            }
-        }
 
         return parseActivitiesFromArray(arrayJson)
     }
@@ -169,20 +189,30 @@ class GarminClient(
                     activityName = activityName,
                     startTimeGmt = startTimeGmt,
                     activityType = typeKey?.let { GarminActivityType(it) },
-                )
+                ),
             )
         }
         return activities
     }
 
-    private fun extractJsonString(json: String, field: String): String? {
+    private fun extractJsonString(
+        json: String,
+        field: String,
+    ): String? {
         val pattern = """"$field"\s*:\s*"([^"]*?)"""".toRegex()
         return pattern.find(json)?.groupValues?.get(1)
     }
 
-    private fun extractJsonLong(json: String, field: String): Long? {
+    private fun extractJsonLong(
+        json: String,
+        field: String,
+    ): Long? {
         val pattern = """"$field"\s*:\s*(\d+)""".toRegex()
-        return pattern.find(json)?.groupValues?.get(1)?.toLongOrNull()
+        return pattern
+            .find(json)
+            ?.groupValues
+            ?.get(1)
+            ?.toLongOrNull()
     }
 
     private companion object {

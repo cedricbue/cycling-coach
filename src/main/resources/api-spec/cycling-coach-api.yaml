@@ -30,122 +30,22 @@ tags:
 
 paths:
 
-  # ── Activities ──────────────────────────────────────────────────────────────
-
-  /api/activities:
-    get:
-      tags: [activities]
-      operationId: listActivities
-      summary: List all activities
-      parameters:
-        - name: page
-          in: query
-          schema:
-            type: integer
-            default: 0
-        - name: size
-          in: query
-          schema:
-            type: integer
-            default: 20
-      responses:
-        "200":
-          description: Paginated activity list
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ActivityPage"
-
-  /api/activities/{id}:
-    get:
-      tags: [activities]
-      operationId: getActivity
-      summary: Get activity detail including computed ride metrics
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-      responses:
-        "200":
-          description: Activity detail with ride metrics
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ActivityDetail"
-        "404":
-          description: Activity not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
   # ── Sync ────────────────────────────────────────────────────────────────────
-
-  /api/sync/authenticate:
-    post:
-      tags: [sync]
-      operationId: authenticate
-      summary: Authenticate with Garmin SSO (credentials used in-memory only)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/GarminAuthRequest"
-      responses:
-        "200":
-          description: Authentication successful, session saved
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SyncStatus"
-        "401":
-          description: Authentication failed
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
 
   /api/sync/trigger:
     post:
-      tags: [sync]
+      tags: [ sync ]
       operationId: triggerSync
-      summary: Trigger a manual Garmin activity sync
+      summary: Trigger a manual Garmin activity sync. Authentication is handled transparently by the backend using GARMIN_EMAIL/GARMIN_PASSWORD env vars.
       responses:
         "202":
           description: Sync job enqueued
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SyncStatus"
-        "401":
-          description: No valid Garmin session
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /api/sync/status:
-    get:
-      tags: [sync]
-      operationId: getSyncStatus
-      summary: Get current sync status and session validity
-      responses:
-        "200":
-          description: Sync status
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SyncStatus"
 
   # ── Calendar ─────────────────────────────────────────────────────────────────
 
   /api/calendar:
     get:
-      tags: [calendar]
+      tags: [ calendar ]
       operationId: getCalendar
       summary: Get calendar data for a month
       parameters:
@@ -173,7 +73,7 @@ paths:
 
   /api/pmc:
     get:
-      tags: [pmc]
+      tags: [ pmc ]
       operationId: getPmc
       summary: Get CTL/ATL/TSB time series for the Performance Management Chart
       parameters:
@@ -201,7 +101,7 @@ paths:
 
   /api/ftp:
     get:
-      tags: [ftp]
+      tags: [ ftp ]
       operationId: getFtpHistory
       summary: Get FTP history (auto-detected and estimated entries)
       responses:
@@ -218,7 +118,7 @@ paths:
 
   /api/goal:
     get:
-      tags: [training]
+      tags: [ training ]
       operationId: getActiveGoal
       summary: Get the current active goal event
       responses:
@@ -236,7 +136,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
     post:
-      tags: [training]
+      tags: [ training ]
       operationId: createGoal
       summary: Create a new goal event (deactivates any existing active goal)
       requestBody:
@@ -255,7 +155,7 @@ paths:
 
   /api/training-plan:
     get:
-      tags: [training]
+      tags: [ training ]
       operationId: getTrainingPlan
       summary: Get the current AI-generated training plan with weeks and workouts
       responses:
@@ -274,7 +174,7 @@ paths:
 
   /api/training-plan/generate:
     post:
-      tags: [training]
+      tags: [ training ]
       operationId: generateTrainingPlan
       summary: Trigger AI training plan generation for the active goal
       responses:
@@ -293,7 +193,7 @@ paths:
 
   /api/training-plan/workouts/{id}/zwo:
     get:
-      tags: [training]
+      tags: [ training ]
       operationId: downloadZwo
       summary: Download ZWO file for a planned workout (Zwift import)
       parameters:
@@ -322,7 +222,7 @@ paths:
 
   /api/coaching/analyze:
     post:
-      tags: [coaching]
+      tags: [ coaching ]
       operationId: analyzeRide
       summary: Request on-demand AI analysis for a ride
       requestBody:
@@ -343,7 +243,7 @@ paths:
 
   /api/nutrition/generate/ride/{id}:
     post:
-      tags: [nutrition]
+      tags: [ nutrition ]
       operationId: generateNutritionForRide
       summary: Generate AI nutrition plan for a completed ride
       parameters:
@@ -363,7 +263,7 @@ paths:
 
   /api/nutrition/generate/workout/{id}:
     post:
-      tags: [nutrition]
+      tags: [ nutrition ]
       operationId: generateNutritionForWorkout
       summary: Generate AI nutrition plan for a planned workout
       parameters:
@@ -383,7 +283,7 @@ paths:
 
   /api/nutrition/ride/{id}:
     get:
-      tags: [nutrition]
+      tags: [ nutrition ]
       operationId: getNutritionForRide
       summary: Get persisted nutrition plan for a completed ride
       parameters:
@@ -409,7 +309,7 @@ paths:
 
   /api/nutrition/workout/{id}:
     get:
-      tags: [nutrition]
+      tags: [ nutrition ]
       operationId: getNutritionForWorkout
       summary: Get persisted nutrition plan for a planned workout
       parameters:
@@ -437,7 +337,7 @@ paths:
 
   /api/settings:
     get:
-      tags: [settings]
+      tags: [ settings ]
       operationId: getSettings
       summary: Get current app settings (read-only, from application.yml)
       responses:
@@ -457,7 +357,7 @@ components:
 
     ErrorResponse:
       type: object
-      required: [message]
+      required: [ message ]
       properties:
         message:
           type: string
@@ -611,32 +511,6 @@ components:
         ride:
           $ref: "#/components/schemas/RideMetrics"
 
-    # Sync
-
-    GarminAuthRequest:
-      type: object
-      required: [username, password]
-      properties:
-        username:
-          type: string
-        password:
-          type: string
-          format: password
-
-    SyncStatus:
-      type: object
-      properties:
-        sessionValid:
-          type: boolean
-        lastSyncTime:
-          type: string
-          format: date-time
-        sessionExpiresAt:
-          type: string
-          format: date-time
-        message:
-          type: string
-
     # Calendar
 
     CalendarDayEntry:
@@ -711,7 +585,7 @@ components:
           format: double
         testType:
           type: string
-          enum: [AUTO_DETECTED, ESTIMATED]
+          enum: [ AUTO_DETECTED, ESTIMATED ]
         notes:
           type: string
 
@@ -730,7 +604,7 @@ components:
           format: date
         eventType:
           type: string
-          enum: [GRAN_FONDO, RACE, SPORTIVE]
+          enum: [ GRAN_FONDO, RACE, SPORTIVE ]
         distanceKm:
           type: number
           format: double
@@ -741,11 +615,11 @@ components:
           type: string
         status:
           type: string
-          enum: [ACTIVE, COMPLETED, CANCELLED]
+          enum: [ ACTIVE, COMPLETED, CANCELLED ]
 
     GoalEventRequest:
       type: object
-      required: [name, eventDate, eventType]
+      required: [ name, eventDate, eventType ]
       properties:
         name:
           type: string
@@ -754,7 +628,7 @@ components:
           format: date
         eventType:
           type: string
-          enum: [GRAN_FONDO, RACE, SPORTIVE]
+          enum: [ GRAN_FONDO, RACE, SPORTIVE ]
         distanceKm:
           type: number
           format: double
@@ -769,7 +643,7 @@ components:
       properties:
         type:
           type: string
-          enum: [WARMUP, STEADY_STATE, INTERVALS, COOLDOWN, FREE_RIDE]
+          enum: [ WARMUP, STEADY_STATE, INTERVALS, COOLDOWN, FREE_RIDE ]
         durationSeconds:
           type: integer
         powerLowPct:
@@ -797,7 +671,7 @@ components:
           type: string
         workoutType:
           type: string
-          enum: [ENDURANCE, INTERVALS, SWEET_SPOT, THRESHOLD, RECOVERY, LONG_RIDE]
+          enum: [ ENDURANCE, INTERVALS, SWEET_SPOT, THRESHOLD, RECOVERY, LONG_RIDE ]
         targetDurationSeconds:
           type: integer
         targetTss:
@@ -824,7 +698,7 @@ components:
           format: date
         phase:
           type: string
-          enum: [BASE, BUILD, PEAK, TAPER]
+          enum: [ BASE, BUILD, PEAK, TAPER ]
         targetTss:
           type: number
           format: double
@@ -851,7 +725,7 @@ components:
           type: string
         status:
           type: string
-          enum: [ACTIVE, COMPLETED, CANCELLED]
+          enum: [ ACTIVE, COMPLETED, CANCELLED ]
         weeks:
           type: array
           items:
@@ -861,7 +735,7 @@ components:
 
     CoachingRequest:
       type: object
-      required: [rideId]
+      required: [ rideId ]
       properties:
         rideId:
           type: integer
@@ -960,7 +834,7 @@ components:
       properties:
         aiProvider:
           type: string
-          enum: [ollama, anthropic]
+          enum: [ ollama, anthropic ]
         aiModel:
           type: string
         powerZones:

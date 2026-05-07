@@ -10,7 +10,6 @@ const val VIRTUAL_THREAD_EXECUTOR = "virtualThreadExecutor"
 
 @Configuration
 class AsyncConfig : AsyncConfigurer {
-
     @Bean(VIRTUAL_THREAD_EXECUTOR)
     fun virtualThreadExecutor(): Executor =
         Executors.newThreadPerTaskExecutor(

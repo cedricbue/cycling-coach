@@ -14,7 +14,8 @@ internal class GarminHttpClient(
     writeTimeout: Duration = Duration.ofSeconds(15),
 ) {
     private val client: OkHttpClient =
-        OkHttpClient.Builder()
+        OkHttpClient
+            .Builder()
             .connectTimeout(connectTimeout)
             .readTimeout(readTimeout)
             .writeTimeout(writeTimeout)
@@ -48,9 +49,11 @@ internal class GarminHttpClient(
         body: String,
     ): String {
         val mediaType = "application/json; charset=utf-8".toMediaType()
-        val request = Request.Builder()
-            .url(url)
-            .post(body.toRequestBody(mediaType))
+        val request =
+            Request
+                .Builder()
+                .url(url)
+                .post(body.toRequestBody(mediaType))
         headers.forEach { (k, v) -> request.header(k, v) }
         return execute(request.build())
     }

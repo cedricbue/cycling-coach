@@ -1,10 +1,7 @@
 server:
   port: 0   # random port for tests
 
-# Reuse the jOOQ codegen DB — Flyway already applied V1 during generate-sources.
-# Tests clean up their own data in @BeforeEach.
+spring:
+  datasource:
+    url: "jdbc:sqlite::memory:"
 
-sync:
-  garmin:
-    sync:
-      initial-fetch-days: 7

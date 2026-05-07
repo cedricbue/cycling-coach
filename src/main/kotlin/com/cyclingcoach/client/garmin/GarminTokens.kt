@@ -9,7 +9,7 @@ data class GarminTokens(
     val accessTokenExpiresAt: Instant,
     val refreshTokenExpiresAt: Instant,
 ) {
-    fun isExpired(): Boolean = Instant.now().isAfter(accessTokenExpiresAt.minusSeconds(300))
+    fun isExpired(): Boolean = Instant.now().isAfter(accessTokenExpiresAt.minusSeconds(1800))
 
     fun isRefreshTokenExpired(): Boolean = Instant.now().isAfter(refreshTokenExpiresAt.minusSeconds(300))
 }

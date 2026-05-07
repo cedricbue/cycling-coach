@@ -18,7 +18,6 @@ data class GarminConnectProperties(
 
 @Configuration
 class GarminClientConfig {
-
     @Bean
     fun garminConfig(props: GarminConnectProperties): GarminConfig =
         GarminConfig(
@@ -30,6 +29,8 @@ class GarminClientConfig {
         )
 
     @Bean
-    fun garminClient(garminConfig: GarminConfig, tokenStore: TokenStore): GarminClient =
-        GarminClient(garminConfig, tokenStore)
+    fun garminClient(
+        garminConfig: GarminConfig,
+        tokenStore: TokenStore,
+    ): GarminClient = GarminClient(garminConfig, tokenStore)
 }
