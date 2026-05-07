@@ -18,5 +18,8 @@ jobs:
           distribution: "temurin"
           cache: maven
 
+      - name: Create data directory for SQLite
+        run: mkdir -p data
+
       - name: Run mvn verify
         run: ./mvnw verify
