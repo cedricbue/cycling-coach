@@ -21,6 +21,9 @@ frontend/src/app/core/api/
 *.db-shm
 *.db-wal
 
+# Docker Compose runtime data
+compose/data/
+
 # Environment
 .env
 *.env.local
