@@ -1,0 +1,36 @@
+package com.cyclingcoach.ride
+
+import java.time.LocalDate
+
+data class RideInput(
+    val activityId: Long,
+    val date: LocalDate,
+    val distanceMeters: Double?,
+    val elevationGain: Double?,
+    val elevationDescent: Double?,
+    val durationSeconds: Double?,
+    val avgPower: Double?,
+    val maxPower: Double?,
+    val avgHr: Double?,
+    val maxHr: Double?,
+    val avgCadence: Double?,
+    val maxCadence: Double?,
+    val avgGrade: Double?,
+    val maxGrade: Double?,
+    val normalizedPower: Double?,
+    val intensityFactor: Double?,
+    val tss: Double?,
+    val bestPower5s: Double?,
+    val bestPower30s: Double?,
+    val bestPower1min: Double?,
+    val bestPower5min: Double?,
+    val bestPower10min: Double?,
+    val bestPower20min: Double?,
+    val bestPower60min: Double?,
+    val wattsPerKg: Double?,
+    val ftp: Double?,
+    val avgSpeedMps: Double?,
+    val maxSpeedMps: Double?,
+    val variabilityIndex: Double?,
+    val efficiencyFactor: Double?,
+)

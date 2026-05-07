@@ -45,4 +45,11 @@ class ActivityRepository(
             .from(ACTIVITY)
             .fetchOne()
             ?.value1()
+
+    fun findRawTcxById(activityId: Long): String? =
+        dsl
+            .select(ACTIVITY.RAW_TCX)
+            .from(ACTIVITY)
+            .where(ACTIVITY.ID.eq(activityId.toInt()))
+            .fetchOne(ACTIVITY.RAW_TCX)
 }
