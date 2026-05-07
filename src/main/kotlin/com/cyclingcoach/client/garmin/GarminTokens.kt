@@ -1,8 +1,8 @@
-package com.cyclingcoach.sync
+package com.cyclingcoach.client.garmin
 
 import java.time.Instant
 
-data class GarminSession(
+data class GarminTokens(
     val accessToken: String,
     val refreshToken: String,
     val diClientId: String,

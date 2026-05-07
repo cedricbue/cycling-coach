@@ -130,7 +130,7 @@ CREATE TABLE nutrition_plan (
 );
 
 -- DI OAuth2 tokens from Garmin authentication; credentials are never persisted
-CREATE TABLE garmin_session (
+CREATE TABLE garmin_token (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     access_token TEXT NOT NULL,
     refresh_token TEXT NOT NULL,

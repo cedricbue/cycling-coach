@@ -1,5 +1,6 @@
 package com.cyclingcoach.sync
 
+import com.cyclingcoach.client.garmin.GarminClient
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
@@ -8,6 +9,7 @@ import org.springframework.stereotype.Component
 
 @Component
 class GarminSyncJob(
+    private val garminClient: GarminClient,
     private val garminSyncService: GarminSyncService,
     private val garminProperties: GarminProperties,
 ) {
@@ -16,18 +18,18 @@ class GarminSyncJob(
     /** Authenticate on startup using env-var credentials if no valid session exists yet. */
     @EventListener(ApplicationReadyEvent::class)
     fun authenticateOnStartup() {
-        if (garminSyncService.hasValidSession()) {
+        if (garminClient.hasValidSession()) {
             log.info("Garmin session still valid — skipping re-authentication")
             return
         }
         log.info("Authenticating with Garmin Connect")
-        garminSyncService.authenticate(garminProperties.email, garminProperties.password)
+        garminClient.login(garminProperties.email, garminProperties.password)
     }
 
     /** Runs every 6 hours (default); override via sync.interval-ms property. */
     @Scheduled(fixedRateString = "\${sync.interval-ms:21600000}", initialDelayString = "5000")
     fun syncActivities() {
-        if (!garminSyncService.hasValidSession()) {
+        if (!garminClient.hasValidSession()) {
             log.warn("No valid Garmin session — skipping scheduled sync")
             return
         }

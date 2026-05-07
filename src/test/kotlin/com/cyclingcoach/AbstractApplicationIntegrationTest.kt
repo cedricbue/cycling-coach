@@ -1,7 +1,7 @@
 package com.cyclingcoach
 
 import com.cyclingcoach.activity.ActivityRepository
-import com.cyclingcoach.sync.GarminSessionRepository
+import com.cyclingcoach.sync.GarminTokenStore
 import com.github.tomakehurst.wiremock.WireMockServer
 import com.github.tomakehurst.wiremock.client.WireMock.aResponse
 import com.github.tomakehurst.wiremock.client.WireMock.post
@@ -27,11 +27,12 @@ import org.springframework.test.context.DynamicPropertySource
  */
 @SpringBootTest
 @ActiveProfiles("test")
-abstract class ApplicationContextTest {
-
+abstract class AbstractApplicationIntegrationTest {
     @Autowired lateinit var dsl: DSLContext
+
     @Autowired lateinit var activityRepository: ActivityRepository
-    @Autowired lateinit var garminSessionRepository: GarminSessionRepository
+
+    @Autowired lateinit var garminTokenStore: GarminTokenStore
 
     /** Reset all stubs and re-register the base auth stubs before every test method. */
     @BeforeEach
@@ -41,7 +42,6 @@ abstract class ApplicationContextTest {
     }
 
     companion object {
-
         /**
          * WireMock singleton: starts once on JVM initialisation, never restarted.
          * All test classes share the same port, so Spring's context cache is not invalidated.
@@ -54,9 +54,9 @@ abstract class ApplicationContextTest {
         fun garminProperties(registry: DynamicPropertyRegistry) {
             registry.add("sync.garmin.email") { "test@example.com" }
             registry.add("sync.garmin.password") { "test-password" }
-            registry.add("sync.garmin.sso.base-url") { "http://localhost:${wireMock.port()}" }
-            registry.add("sync.garmin.di-auth.base-url") { "http://localhost:${wireMock.port()}" }
-            registry.add("sync.garmin.api.base-url") { "http://localhost:${wireMock.port()}" }
+            registry.add("garmin.connect.sso-base-url") { "http://localhost:${wireMock.port()}" }
+            registry.add("garmin.connect.di-auth-base-url") { "http://localhost:${wireMock.port()}" }
+            registry.add("garmin.connect.api-base-url") { "http://localhost:${wireMock.port()}" }
             // Stubs must exist before ApplicationReadyEvent fires GarminSyncJob.authenticateOnStartup
             stubGarminAuthFlow()
         }

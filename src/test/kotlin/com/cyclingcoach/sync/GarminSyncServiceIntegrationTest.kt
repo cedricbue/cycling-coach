@@ -1,29 +1,27 @@
 package com.cyclingcoach.sync
 
-import com.cyclingcoach.ApplicationContextTest
+import com.cyclingcoach.AbstractApplicationIntegrationTest
+import com.cyclingcoach.generated.jooq.tables.references.ACTIVITY
 import com.github.tomakehurst.wiremock.client.WireMock.aResponse
 import com.github.tomakehurst.wiremock.client.WireMock.get
 import com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor
-import com.github.tomakehurst.wiremock.client.WireMock.post
 import com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo
 import com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching
 import org.assertj.core.api.Assertions.assertThat
-import org.jooq.impl.DSL
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 
 @Tag("integration")
-class GarminSyncServiceIntegrationTest : ApplicationContextTest() {
-
+class GarminSyncServiceIntegrationTest : AbstractApplicationIntegrationTest() {
     @Autowired
     private lateinit var garminSyncService: GarminSyncService
 
     @BeforeEach
     fun resetState() {
-        dsl.deleteFrom(DSL.table("activity")).execute()
-        garminSessionRepository.deleteAll()
+        dsl.deleteFrom(ACTIVITY).execute()
+        garminTokenStore.deleteAll()
         // Re-authenticate so each test starts with a fresh valid session
         garminSyncService.authenticate("test@example.com", "test-password")
     }
@@ -52,7 +50,9 @@ class GarminSyncServiceIntegrationTest : ApplicationContextTest() {
 
     @Test
     fun `syncActivities deduplicates activities already in database`() {
-        stubActivityList("""[{"activityId":99999,"activityName":"Dupe Ride","startTimeGMT":"2024-02-01 07:00:00","activityType":{"typeKey":"cycling"}}]""")
+        stubActivityList(
+            """[{"activityId":99999,"activityName":"Dupe Ride","startTimeGMT":"2024-02-01 07:00:00","activityType":{"typeKey":"cycling"}}]""",
+        )
         stubTcxDownload(99999L, minimalTcx())
 
         garminSyncService.syncActivities()
@@ -107,7 +107,9 @@ class GarminSyncServiceIntegrationTest : ApplicationContextTest() {
                     aResponse()
                         .withStatus(200)
                         .withHeader("Content-Type", "application/json")
-                        .withBody("""[{"activityId":77777,"activityName":"After Reauth","startTimeGMT":"2024-04-01 06:00:00","activityType":{"typeKey":"cycling"}}]"""),
+                        .withBody(
+                            """[{"activityId":77777,"activityName":"After Reauth","startTimeGMT":"2024-04-01 06:00:00","activityType":{"typeKey":"cycling"}}]""",
+                        ),
                 ),
         )
         stubTcxDownload(77777L, minimalTcx())
@@ -120,7 +122,7 @@ class GarminSyncServiceIntegrationTest : ApplicationContextTest() {
 
     @Test
     fun `syncActivities aborts gracefully when no valid session exists`() {
-        garminSessionRepository.deleteAll()
+        garminTokenStore.deleteAll()
 
         // Should not throw — just log and return
         garminSyncService.syncActivities()

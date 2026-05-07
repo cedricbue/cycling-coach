@@ -14,8 +14,8 @@ Personal road cycling training analysis tool. Analyze rides from Garmin Connect 
 | Migrations | Flyway 11.x (11.14.1)               | Versioned schema migrations; SQLite supported in core                                                |
 | Database | SQLite (org.xerial:sqlite-jdbc)      | File-based, backup-friendly, no server                                                               |
 | AI Integration | Spring AI 2.0.x (add when GA)       | Ollama and Anthropic as switchable options (not fallback); deferred until 2.0 GA                     |
-| Garmin API | Spring RestClient + manual endpoints | Built-in HTTP client; no OkHttp needed                                                               |
-| Job Scheduling | Spring `@Scheduled`                  | Built-in; 6h default interval, configurable via `scheduling.sync-interval-ms`                       |
+| Garmin API | OkHttp 4.x via `client/garmin/` package | Framework-agnostic `GarminClient`; handles SSO → DI OAuth2 token exchange, auto-refresh, auto-reauth |
+| Job Scheduling | Spring `@Scheduled`                  | Built-in; 6h default interval, configurable via `sync.interval-ms`                                  |
 | TCX Parsing | Jackson XML (tools.jackson)          | Jackson 3 coordinates; parse TCX from DB storage                                                     |
 | API Spec | OpenAPI 3.1 YAML                     | Spec-first; lives in `api-spec/cycling-coach-api.yaml`                                               |
 | API Generator | openapi-generator-maven-plugin 7.x   | Generates Spring controller interfaces + DTOs from spec; implementations provided by domain services |
@@ -49,7 +49,9 @@ Structured by domain. Controllers implement generated interfaces from `generated
 
 ```
 com.cyclingcoach
-├── config/              # Infrastructure only: Spring, jOOQ, Flyway, JobRunr, Spring AI
+├── config/              # Infrastructure only: Spring, jOOQ, Flyway, Spring AI, async, Garmin client wiring
+│   ├── GarminClientConfig.kt      # @Bean for GarminConfig + GarminClient (reads garmin.connect.* properties)
+│   └── AsyncConfig.kt             # virtual thread executor bean for @Async (VIRTUAL_THREAD_EXECUTOR)
 ├── activity/            # Garmin-synced activities: list, detail
 │   ├── ActivityController.kt  # implements generated ActivitiesApi
 │   ├── ActivityService.kt
@@ -82,11 +84,22 @@ com.cyclingcoach
 │   ├── NutritionController.kt # implements generated NutritionApi
 │   ├── NutritionService.kt    # calls AI with ride/workout context, persists result
 │   └── NutritionRepository.kt
-├── sync/                # Garmin sync: Spring RestClient session auth, @Scheduled job
-│   ├── GarminSyncJob.kt           # @Scheduled every 6h; fires ActivityStoredEvent per new activity
-│   ├── GarminSyncService.kt       # downloads TCX, persists Activity, publishes events
-│   ├── GarminAuthClient.kt        # performs SSO login; credentials used in-memory only
-│   ├── GarminSessionRepository.kt
+├── client/garmin/       # Framework-agnostic Garmin Connect client (no Spring dependency)
+│   ├── GarminClient.kt            # public API: login, refreshToken, getActivities, downloadTcx
+│   ├── GarminConfig.kt            # SSO + DI auth + API base URLs (data class)
+│   ├── GarminTokens.kt            # access/refresh token model with isExpired() helpers
+│   ├── TokenStore.kt              # pluggable persistence interface (save/load/delete)
+│   ├── GarminActivity.kt          # Garmin activity/activityType data models
+│   ├── GarminException.kt         # sealed hierarchy: GarminAuthException, GarminApiException, etc.
+│   └── internal/
+│       ├── GarminAuthService.kt   # SSO POST → serviceTicketId → DI token exchange (tries multiple client IDs)
+│       └── GarminHttpClient.kt    # OkHttp wrapper (GET, postForm, postJson)
+├── sync/                # Garmin sync: @Scheduled job, Spring wiring, TokenStore implementation
+│   ├── GarminSyncJob.kt           # @Scheduled every 6h + ApplicationReadyEvent startup auth
+│   ├── GarminSyncService.kt       # orchestrates sync: fetches activity list, downloads TCX, persists via ActivityService
+│   ├── AsyncGarminSyncService.kt  # @Async wrapper using virtual thread executor (for non-blocking trigger endpoint)
+│   ├── GarminTokenStore.kt        # implements TokenStore; persists DI OAuth2 tokens to garmin_token table via jOOQ
+│   ├── GarminProperties.kt        # @ConfigurationProperties(prefix="sync.garmin"): email, password, initialFetchDays
 │   └── SyncController.kt          # implements generated SyncApi
 ├── settings/            # Zone thresholds (read-only API, configured via Spring properties)
 │   ├── SettingsController.kt  # implements generated SettingsApi
@@ -202,8 +215,8 @@ TrainingLoad is recalculated once after all orphans are processed (not per-activ
 - postRide (TEXT — recovery window, protein + carb targets)
 - generatedAt
 
-**GarminSession** — Persisted Garmin SSO session cookies obtained after a successful login. Credentials are never stored — only the resulting tokens. When the session expires the user re-authenticates via `POST /api/sync/authenticate`.
-- id, sessionCookies (TEXT, serialized OkHttp cookie jar), expiresAt, createdAt
+**GarminTokens** (`garmin_token` table) — Persisted DI OAuth2 access and refresh tokens from a successful Garmin SSO login. Credentials are never stored. `GarminClient` automatically refreshes the access token before expiry; falls back to full re-auth using in-memory credentials from startup. When the refresh token expires the app re-authenticates on startup from `sync.garmin.email`/`sync.garmin.password` env vars.
+- id, access_token, refresh_token, di_client_id, access_token_expires_at, refresh_token_expires_at, created_at
 
 ### Database Schema
 
@@ -339,11 +352,14 @@ CREATE TABLE nutrition_plan (
     )
 );
 
--- Session cookies from Garmin SSO; credentials are never persisted
-CREATE TABLE garmin_session (
+-- DI OAuth2 tokens from Garmin authentication; credentials are never persisted
+CREATE TABLE garmin_token (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    session_cookies TEXT NOT NULL,  -- serialized OkHttp cookie jar (JSON)
-    expires_at TEXT,
+    access_token TEXT NOT NULL,
+    refresh_token TEXT NOT NULL,
+    di_client_id TEXT NOT NULL DEFAULT '',
+    access_token_expires_at TEXT NOT NULL,
+    refresh_token_expires_at TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -530,7 +546,7 @@ src/app
 - All configuration via `application.yml` / environment variables (no write API)
 - AI provider: `AI_PROVIDER=ollama|anthropic`, model: `AI_MODEL=...`
 - Zone thresholds: `cycling.zones.power.*`, `cycling.zones.hr.*`
-- Garmin credentials are NOT stored — user authenticates once via `POST /api/sync/authenticate`; session token persisted in DB
+- Garmin auth: `sync.garmin.email` + `sync.garmin.password` env vars drive startup login; DI OAuth2 tokens persisted in `garmin_token` table; credentials never stored
 - Frontend reads current config from `GET /api/settings` (read-only projection of Spring properties)
 
 ## Deployment
@@ -584,15 +600,15 @@ CMD ["java", "-jar", "app.jar"]
 4. Angular services are ready to inject — no hand-written HTTP calls
 
 ### Local Dev
-1. `mvn spring-boot:run` (backend on :8001)
-2. `ng serve` (frontend on :4200, proxies API to :8001)
+1. `mvn spring-boot:run` (backend on :8080)
+2. `ng serve` (frontend on :4200, proxies API to :8080)
 3. Garmin sync fires automatically every 6 h via `@Scheduled`; trigger manually via `POST /api/sync/trigger`
 
 ### API Endpoints (Phase 1)
 ```
 GET    /api/activities              - list activities
 GET    /api/activities/{id}         - activity detail
-POST   /api/sync/authenticate        - SSO login (credentials in body, never stored; session token saved to DB)
+POST   /api/sync/authenticate        - SSO login (credentials in body, never stored; DI OAuth2 tokens saved to DB)
 POST   /api/sync/trigger             - trigger Garmin sync (requires valid session)
 GET    /api/sync/status              - session validity + last sync time
 GET    /api/calendar                - calendar data

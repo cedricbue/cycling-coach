@@ -1,5 +1,6 @@
 package com.cyclingcoach.sync
 
+import com.cyclingcoach.client.garmin.TokenStore
 import com.cyclingcoach.generated.api.SyncApi
 import com.cyclingcoach.generated.model.GarminAuthRequest
 import com.cyclingcoach.generated.model.SyncStatus
@@ -9,7 +10,8 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 class SyncController(
     private val garminSyncService: GarminSyncService,
-    private val garminSessionRepository: GarminSessionRepository,
+    private val asyncGarminSyncService: AsyncGarminSyncService,
+    private val tokenStore: TokenStore,
 ) : SyncApi {
     override fun authenticate(garminAuthRequest: GarminAuthRequest): ResponseEntity<SyncStatus> {
         garminSyncService.authenticate(garminAuthRequest.username, garminAuthRequest.password)
@@ -17,15 +19,14 @@ class SyncController(
     }
 
     override fun triggerSync(): ResponseEntity<SyncStatus> {
-        // TODO rethink this design choide
-        Thread.ofVirtual().start { garminSyncService.syncActivities() }
+        asyncGarminSyncService.syncActivities()
         return ResponseEntity.accepted().body(buildStatus().copy(message = "Sync started"))
     }
 
     override fun getSyncStatus(): ResponseEntity<SyncStatus> = ResponseEntity.ok(buildStatus())
 
     private fun buildStatus(): SyncStatus {
-        val tokens = garminSessionRepository.loadLatest()
+        val tokens = tokenStore.load()
         return SyncStatus(
             sessionValid = tokens?.isExpired()?.not() ?: false,
             sessionExpiresAt =

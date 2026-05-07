@@ -2,8 +2,7 @@ package com.cyclingcoach
 
 import org.junit.jupiter.api.Test
 
-class ContextLoadsTest : ApplicationContextTest() {
-
+class CyclingCoachApplicationTest : AbstractApplicationIntegrationTest() {
     @Test
     fun contextLoads() {
         // Spring context started, Flyway ran V1 migration, jOOQ is wired,

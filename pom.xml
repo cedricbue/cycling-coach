@@ -104,6 +104,13 @@
             <version>${springdoc.version}</version>
         </dependency>
 
+        <!-- OkHttp — used by the garmin client package for framework-agnostic HTTP calls -->
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <version>4.12.0</version>
+        </dependency>
+
         <!-- Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
