@@ -1,0 +1,16 @@
+<button
+  mat-raised-button
+  (click)="onSync()"
+  [disabled]="syncing()"
+>
+  @if (syncing()) {
+    <mat-spinner diameter="20" />
+  } @else {
+    <mat-icon>sync</mat-icon>
+  }
+  Sync MyGarmin
+</button>
+
+@if (syncError()) {
+  <p class="error">Sync failed: {{ syncError() }}</p>
+}

@@ -13,6 +13,9 @@ node_modules/
 dist/
 .angular/
 
+# Angular build output (generated during Maven build, not committed)
+src/main/resources/static/
+
 # Generated frontend API (openapi-generator output)
 frontend/src/app/core/api/
 

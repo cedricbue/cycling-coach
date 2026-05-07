@@ -1,7 +1,10 @@
 server:
-  port: 8002
+  port: 8080
 
 spring:
+  web:
+    resources:
+      static-locations: classpath:/static/browser/
   datasource:
     url: jdbc:sqlite:./data/cycling-coach.db
     driver-class-name: org.sqlite.JDBC

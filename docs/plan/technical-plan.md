@@ -465,6 +465,13 @@ CREATE TABLE training_load (
 
 NgRx state lives in a `+state/` folder inside each feature (standard NgRx schematics convention; `+` sorts it to the top).
 
+HTTP calls use exclusively the generated API client services from `core/api/` (produced by openapi-generator from the YAML spec). No hand-written `HttpClient` calls. The generated client is wired via `provideApi('')` in `app.config.ts`.
+
+**Component file convention:** Components must use external template and style files — no inline `template` or `styles` in the `@Component` decorator. Each component consists of three files:
+- `*.component.ts` — class + metadata (`templateUrl`, `styleUrl`)
+- `*.component.html` — template
+- `*.component.scss` — styles
+
 ```
 src/app
 ├── core/
@@ -476,7 +483,8 @@ src/app
 │   ├── material/       # Angular Material module
 │   └── util/
 ├── features/
-│   ├── activities/     # List/detail pages
+│   ├── home/           # Home page — embeds activities component
+│   ├── activities/     # List/detail pages + Garmin sync trigger
 │   │   └── +state/     # actions, reducer, effects, selectors
 │   ├── calendar/       # Activity calendar
 │   │   └── +state/
