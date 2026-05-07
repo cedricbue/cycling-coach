@@ -315,6 +315,16 @@
                         </goals>
                     </execution>
                     <execution>
+                        <id>ng-test</id>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <phase>test</phase>
+                        <configuration>
+                            <arguments>run test -- --watch=false</arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
                         <id>ng-build</id>
                         <goals>
                             <goal>npm</goal>
