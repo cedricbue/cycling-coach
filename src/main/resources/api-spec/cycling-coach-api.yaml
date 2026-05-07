@@ -1,0 +1,969 @@
+openapi: 3.1.0
+info:
+  title: Cycling Coach API
+  description: Personal road cycling training analysis tool — Garmin data, PMC, AI coaching
+  version: 0.0.1
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+tags:
+  - name: activities
+    description: Garmin-synced activities (list, detail)
+  - name: sync
+    description: Garmin SSO authentication and activity sync
+  - name: calendar
+    description: Monthly calendar aggregation of ride data
+  - name: pmc
+    description: Performance Management Chart — CTL, ATL, TSB time series
+  - name: ftp
+    description: FTP history (auto-detected and estimated)
+  - name: training
+    description: Goal event, AI-generated training plan, ZWO export
+  - name: coaching
+    description: On-demand AI ride analysis
+  - name: nutrition
+    description: AI-generated nutrition plans for rides and planned workouts
+  - name: settings
+    description: Read-only application settings (configured via application.yml)
+
+paths:
+
+  # ── Activities ──────────────────────────────────────────────────────────────
+
+  /api/activities:
+    get:
+      tags: [activities]
+      operationId: listActivities
+      summary: List all activities
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Paginated activity list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityPage"
+
+  /api/activities/{id}:
+    get:
+      tags: [activities]
+      operationId: getActivity
+      summary: Get activity detail including computed ride metrics
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Activity detail with ride metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityDetail"
+        "404":
+          description: Activity not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ── Sync ────────────────────────────────────────────────────────────────────
+
+  /api/sync/authenticate:
+    post:
+      tags: [sync]
+      operationId: authenticate
+      summary: Authenticate with Garmin SSO (credentials used in-memory only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GarminAuthRequest"
+      responses:
+        "200":
+          description: Authentication successful, session saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncStatus"
+        "401":
+          description: Authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/sync/trigger:
+    post:
+      tags: [sync]
+      operationId: triggerSync
+      summary: Trigger a manual Garmin activity sync
+      responses:
+        "202":
+          description: Sync job enqueued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncStatus"
+        "401":
+          description: No valid Garmin session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/sync/status:
+    get:
+      tags: [sync]
+      operationId: getSyncStatus
+      summary: Get current sync status and session validity
+      responses:
+        "200":
+          description: Sync status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncStatus"
+
+  # ── Calendar ─────────────────────────────────────────────────────────────────
+
+  /api/calendar:
+    get:
+      tags: [calendar]
+      operationId: getCalendar
+      summary: Get calendar data for a month
+      parameters:
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: month
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 12
+      responses:
+        "200":
+          description: Calendar with daily ride summaries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarResponse"
+
+  # ── PMC ──────────────────────────────────────────────────────────────────────
+
+  /api/pmc:
+    get:
+      tags: [pmc]
+      operationId: getPmc
+      summary: Get CTL/ATL/TSB time series for the Performance Management Chart
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: PMC time series
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PmcDataPoint"
+
+  # ── FTP ──────────────────────────────────────────────────────────────────────
+
+  /api/ftp:
+    get:
+      tags: [ftp]
+      operationId: getFtpHistory
+      summary: Get FTP history (auto-detected and estimated entries)
+      responses:
+        "200":
+          description: FTP history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FtpEntry"
+
+  # ── Training ─────────────────────────────────────────────────────────────────
+
+  /api/goal:
+    get:
+      tags: [training]
+      operationId: getActiveGoal
+      summary: Get the current active goal event
+      responses:
+        "200":
+          description: Active goal event
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GoalEvent"
+        "404":
+          description: No active goal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      tags: [training]
+      operationId: createGoal
+      summary: Create a new goal event (deactivates any existing active goal)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GoalEventRequest"
+      responses:
+        "201":
+          description: Goal created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GoalEvent"
+
+  /api/training-plan:
+    get:
+      tags: [training]
+      operationId: getTrainingPlan
+      summary: Get the current AI-generated training plan with weeks and workouts
+      responses:
+        "200":
+          description: Training plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingPlan"
+        "404":
+          description: No training plan exists yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/training-plan/generate:
+    post:
+      tags: [training]
+      operationId: generateTrainingPlan
+      summary: Trigger AI training plan generation for the active goal
+      responses:
+        "200":
+          description: Generated training plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingPlan"
+        "404":
+          description: No active goal event
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/training-plan/workouts/{id}/zwo:
+    get:
+      tags: [training]
+      operationId: downloadZwo
+      summary: Download ZWO file for a planned workout (Zwift import)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: ZWO XML file
+          content:
+            application/xml:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Workout not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ── Coaching ─────────────────────────────────────────────────────────────────
+
+  /api/coaching/analyze:
+    post:
+      tags: [coaching]
+      operationId: analyzeRide
+      summary: Request on-demand AI analysis for a ride
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoachingRequest"
+      responses:
+        "200":
+          description: AI analysis (persisted in ride.coach_summary)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoachingResponse"
+
+  # ── Nutrition ────────────────────────────────────────────────────────────────
+
+  /api/nutrition/generate/ride/{id}:
+    post:
+      tags: [nutrition]
+      operationId: generateNutritionForRide
+      summary: Generate AI nutrition plan for a completed ride
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Nutrition plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NutritionPlan"
+
+  /api/nutrition/generate/workout/{id}:
+    post:
+      tags: [nutrition]
+      operationId: generateNutritionForWorkout
+      summary: Generate AI nutrition plan for a planned workout
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Nutrition plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NutritionPlan"
+
+  /api/nutrition/ride/{id}:
+    get:
+      tags: [nutrition]
+      operationId: getNutritionForRide
+      summary: Get persisted nutrition plan for a completed ride
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Nutrition plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NutritionPlan"
+        "404":
+          description: No nutrition plan yet — call generate first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/nutrition/workout/{id}:
+    get:
+      tags: [nutrition]
+      operationId: getNutritionForWorkout
+      summary: Get persisted nutrition plan for a planned workout
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Nutrition plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NutritionPlan"
+        "404":
+          description: No nutrition plan yet — call generate first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ── Settings ─────────────────────────────────────────────────────────────────
+
+  /api/settings:
+    get:
+      tags: [settings]
+      operationId: getSettings
+      summary: Get current app settings (read-only, from application.yml)
+      responses:
+        "200":
+          description: Application settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppSettings"
+
+# ── Components ───────────────────────────────────────────────────────────────
+
+components:
+  schemas:
+
+    # Shared
+
+    ErrorResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+        code:
+          type: string
+
+    # Activity
+
+    ActivitySummary:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+        date:
+          type: string
+          format: date
+        distanceKm:
+          type: number
+          format: double
+        durationSeconds:
+          type: number
+          format: double
+        elevationGainM:
+          type: number
+          format: double
+        avgPowerW:
+          type: number
+          format: double
+        normalizedPowerW:
+          type: number
+          format: double
+        tss:
+          type: number
+          format: double
+        intensityFactor:
+          type: number
+          format: double
+
+    ActivityPage:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivitySummary"
+        totalElements:
+          type: integer
+          format: int64
+        page:
+          type: integer
+        size:
+          type: integer
+
+    RideMetrics:
+      type: object
+      properties:
+        distanceKm:
+          type: number
+          format: double
+        elevationGainM:
+          type: number
+          format: double
+        elevationDescentM:
+          type: number
+          format: double
+        durationSeconds:
+          type: number
+          format: double
+        avgPowerW:
+          type: number
+          format: double
+        maxPowerW:
+          type: number
+          format: double
+        avgHrBpm:
+          type: number
+          format: double
+        maxHrBpm:
+          type: number
+          format: double
+        avgCadenceRpm:
+          type: number
+          format: double
+        maxCadenceRpm:
+          type: number
+          format: double
+        normalizedPowerW:
+          type: number
+          format: double
+        intensityFactor:
+          type: number
+          format: double
+        tss:
+          type: number
+          format: double
+        ftpAtRide:
+          type: number
+          format: double
+        wattsPerKg:
+          type: number
+          format: double
+        bestPower5sW:
+          type: number
+          format: double
+        bestPower30sW:
+          type: number
+          format: double
+        bestPower1minW:
+          type: number
+          format: double
+        bestPower5minW:
+          type: number
+          format: double
+        bestPower10minW:
+          type: number
+          format: double
+        bestPower20minW:
+          type: number
+          format: double
+        bestPower60minW:
+          type: number
+          format: double
+        rpe:
+          type: integer
+          minimum: 1
+          maximum: 10
+        coachSummary:
+          type: string
+        notes:
+          type: string
+
+    ActivityDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        externalId:
+          type: string
+        name:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+        ride:
+          $ref: "#/components/schemas/RideMetrics"
+
+    # Sync
+
+    GarminAuthRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+          format: password
+
+    SyncStatus:
+      type: object
+      properties:
+        sessionValid:
+          type: boolean
+        lastSyncTime:
+          type: string
+          format: date-time
+        sessionExpiresAt:
+          type: string
+          format: date-time
+        message:
+          type: string
+
+    # Calendar
+
+    CalendarDayEntry:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        rideCount:
+          type: integer
+        totalTss:
+          type: number
+          format: double
+        totalDistanceKm:
+          type: number
+          format: double
+        activityIds:
+          type: array
+          items:
+            type: integer
+            format: int64
+
+    CalendarResponse:
+      type: object
+      properties:
+        year:
+          type: integer
+        month:
+          type: integer
+        days:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalendarDayEntry"
+
+    # PMC
+
+    PmcDataPoint:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        tss:
+          type: number
+          format: double
+        ctl:
+          type: number
+          format: double
+          description: Chronic Training Load — 42-day EWMA of TSS (fitness)
+        atl:
+          type: number
+          format: double
+          description: Acute Training Load — 7-day EWMA of TSS (fatigue)
+        tsb:
+          type: number
+          format: double
+          description: Training Stress Balance — CTL_yesterday minus ATL_yesterday (form)
+
+    # FTP
+
+    FtpEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        date:
+          type: string
+          format: date
+        ftpValue:
+          type: number
+          format: double
+        testType:
+          type: string
+          enum: [AUTO_DETECTED, ESTIMATED]
+        notes:
+          type: string
+
+    # Training
+
+    GoalEvent:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        eventDate:
+          type: string
+          format: date
+        eventType:
+          type: string
+          enum: [GRAN_FONDO, RACE, SPORTIVE]
+        distanceKm:
+          type: number
+          format: double
+        elevationM:
+          type: number
+          format: double
+        notes:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, COMPLETED, CANCELLED]
+
+    GoalEventRequest:
+      type: object
+      required: [name, eventDate, eventType]
+      properties:
+        name:
+          type: string
+        eventDate:
+          type: string
+          format: date
+        eventType:
+          type: string
+          enum: [GRAN_FONDO, RACE, SPORTIVE]
+        distanceKm:
+          type: number
+          format: double
+        elevationM:
+          type: number
+          format: double
+        notes:
+          type: string
+
+    WorkoutBlock:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [WARMUP, STEADY_STATE, INTERVALS, COOLDOWN, FREE_RIDE]
+        durationSeconds:
+          type: integer
+        powerLowPct:
+          type: number
+          format: double
+          description: Lower bound power as % of FTP
+        powerHighPct:
+          type: number
+          format: double
+          description: Upper bound power as % of FTP
+        repeat:
+          type: integer
+          default: 1
+
+    PlannedWorkout:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        scheduledDate:
+          type: string
+          format: date
+        name:
+          type: string
+        workoutType:
+          type: string
+          enum: [ENDURANCE, INTERVALS, SWEET_SPOT, THRESHOLD, RECOVERY, LONG_RIDE]
+        targetDurationSeconds:
+          type: integer
+        targetTss:
+          type: number
+          format: double
+        workoutBlocks:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkoutBlock"
+        completedRideId:
+          type: integer
+          format: int64
+
+    TrainingWeek:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        weekNumber:
+          type: integer
+        startDate:
+          type: string
+          format: date
+        phase:
+          type: string
+          enum: [BASE, BUILD, PEAK, TAPER]
+        targetTss:
+          type: number
+          format: double
+        notes:
+          type: string
+        workouts:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlannedWorkout"
+
+    TrainingPlan:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        goalEventId:
+          type: integer
+          format: int64
+        generatedAt:
+          type: string
+          format: date-time
+        summary:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, COMPLETED, CANCELLED]
+        weeks:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrainingWeek"
+
+    # Coaching
+
+    CoachingRequest:
+      type: object
+      required: [rideId]
+      properties:
+        rideId:
+          type: integer
+          format: int64
+        regenerate:
+          type: boolean
+          default: false
+          description: Force re-generation even if coach_summary already exists
+
+    CoachingResponse:
+      type: object
+      properties:
+        rideId:
+          type: integer
+          format: int64
+        summary:
+          type: string
+        generatedAt:
+          type: string
+          format: date-time
+
+    # Nutrition
+
+    NutritionPlan:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        rideId:
+          type: integer
+          format: int64
+        plannedWorkoutId:
+          type: integer
+          format: int64
+        targetCarbsPerHourG:
+          type: number
+          format: double
+          description: Target carbohydrate intake during ride in grams per hour
+        targetFluidsMlPerHour:
+          type: number
+          format: double
+          description: Target fluid intake during ride in ml per hour
+        preRide:
+          type: string
+          description: Pre-ride meal timing and composition guidance
+        duringRide:
+          type: string
+          description: During-ride nutrition strategy with product suggestions
+        postRide:
+          type: string
+          description: Post-ride recovery nutrition targets
+        generatedAt:
+          type: string
+          format: date-time
+
+    # Settings
+
+    PowerZoneSettings:
+      type: object
+      properties:
+        z1Max:
+          type: integer
+          description: Zone 1 upper bound as % of FTP (Active Recovery)
+        z2Max:
+          type: integer
+          description: Zone 2 upper bound as % of FTP (Endurance)
+        z3Max:
+          type: integer
+          description: Zone 3 upper bound as % of FTP (Tempo)
+        z4Max:
+          type: integer
+          description: Zone 4 upper bound as % of FTP (Lactate Threshold)
+        z5Max:
+          type: integer
+          description: Zone 5 upper bound as % of FTP (VO2max)
+
+    HrZoneSettings:
+      type: object
+      properties:
+        z1Max:
+          type: integer
+          description: Zone 1 upper bound as % of max HR
+        z2Max:
+          type: integer
+          description: Zone 2 upper bound as % of max HR
+        z3Max:
+          type: integer
+          description: Zone 3 upper bound as % of max HR
+        z4Max:
+          type: integer
+          description: Zone 4 upper bound as % of max HR
+
+    AppSettings:
+      type: object
+      properties:
+        aiProvider:
+          type: string
+          enum: [ollama, anthropic]
+        aiModel:
+          type: string
+        powerZones:
+          $ref: "#/components/schemas/PowerZoneSettings"
+        hrZones:
+          $ref: "#/components/schemas/HrZoneSettings"

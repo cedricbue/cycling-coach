@@ -1,0 +1,32 @@
+server:
+  port: 8002
+
+spring:
+  datasource:
+    url: jdbc:sqlite:./data/cycling-coach.db
+    driver-class-name: org.sqlite.JDBC
+    hikari:
+      maximum-pool-size: 1
+      connection-init-sql: "PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;"
+  jooq:
+    sql-dialect: SQLITE
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  main:
+    banner-mode: off
+
+sync:
+  garmin:
+    email: ${GARMIN_EMAIL:}
+    password: ${GARMIN_PASSWORD:}
+
+logging:
+  level:
+    com.cyclingcoach.sync: DEBUG
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus

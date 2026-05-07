@@ -6,22 +6,22 @@ Personal road cycling training analysis tool. Analyze rides from Garmin Connect 
 ## Tech Stack
 
 ### Backend
-| Component | Choice | Notes |
-|---|---|---|
-| Framework | Spring Boot 4.0.x | Latest stable |
-| Language | Kotlin 2.2.x | Type safety, conciseness |
-| SQL | jOOQ 3.19.x | Type-safe queries, code generation from Flyway schema |
-| Migrations | Flyway 11.x | Versioned schema migrations |
-| Database | SQLite (org.xerial:sqlite-jdbc) | File-based, backup-friendly, no server |
-| AI Integration | Spring AI 1.0.x | Ollama and Anthropic as switchable options (not fallback) |
-| Garmin API | OkHttp + manual endpoints | Control over auth, no reliable Java wrapper |
-| Job Scheduling | JobRunr Spring Boot Starter 8.x | Auto-configured via `jobrunr-spring-boot-3-starter` |
-| TCX Parsing | Jackson XML + JAXB | Standard Java XML, parse TCX from DB storage |
-| API Spec | OpenAPI 3.1 YAML | Spec-first; lives in `api-spec/cycling-coach-api.yaml` |
-| API Generator | openapi-generator-maven-plugin 7.x | Generates Spring controller interfaces + DTOs from spec; implementations provided by domain services |
-| DTO Mapping | MapStruct | Compile-time mapping from jOOQ models to generated DTOs |
-| Metrics | Micrometer + Prometheus | Observability |
-| Testing | WireMock | Mock Garmin/external APIs |
+| Component | Choice                               | Notes                                                                                                |
+|---|--------------------------------------|------------------------------------------------------------------------------------------------------|
+| Framework | Spring Boot 4.0.x (4.0.6)           | Latest stable                                                                                        |
+| Language | Kotlin 2.3.x (2.3.21)               | JVM target 25; type safety, conciseness                                                              |
+| SQL | jOOQ 3.19.x (3.19.32)               | Type-safe queries, code generation from Flyway schema                                                |
+| Migrations | Flyway 11.x (11.14.1)               | Versioned schema migrations; SQLite supported in core                                                |
+| Database | SQLite (org.xerial:sqlite-jdbc)      | File-based, backup-friendly, no server                                                               |
+| AI Integration | Spring AI 2.0.x (add when GA)       | Ollama and Anthropic as switchable options (not fallback); deferred until 2.0 GA                     |
+| Garmin API | OkHttp 4.x via `client/garmin/` package | Framework-agnostic `GarminClient`; handles SSO → DI OAuth2 token exchange, auto-refresh, auto-reauth |
+| Job Scheduling | Spring `@Scheduled`                  | Built-in; 6h default interval, configurable via `sync.interval-ms`                                  |
+| TCX Parsing | Jackson XML (tools.jackson)          | Jackson 3 coordinates; parse TCX from DB storage                                                     |
+| API Spec | OpenAPI 3.1 YAML                     | Spec-first; lives in `api-spec/cycling-coach-api.yaml`                                               |
+| API Generator | openapi-generator-maven-plugin 7.x   | Generates Spring controller interfaces + DTOs from spec; implementations provided by domain services |
+| DTO Mapping | MapStruct                            | Compile-time mapping from jOOQ models to generated DTOs                                              |
+| Metrics | Micrometer + Prometheus              | Observability                                                                                        |
+| Testing | WireMock                             | Mock Garmin/external APIs                                                                            |
 
 ### Frontend
 | Component | Choice | Notes |
@@ -49,7 +49,9 @@ Structured by domain. Controllers implement generated interfaces from `generated
 
 ```
 com.cyclingcoach
-├── config/              # Infrastructure only: Spring, jOOQ, Flyway, JobRunr, Spring AI
+├── config/              # Infrastructure only: Spring, jOOQ, Flyway, Spring AI, async, Garmin client wiring
+│   ├── GarminClientConfig.kt      # @Bean for GarminConfig + GarminClient (reads garmin.connect.* properties)
+│   └── AsyncConfig.kt             # virtual thread executor bean for @Async (VIRTUAL_THREAD_EXECUTOR)
 ├── activity/            # Garmin-synced activities: list, detail
 │   ├── ActivityController.kt  # implements generated ActivitiesApi
 │   ├── ActivityService.kt
@@ -82,11 +84,22 @@ com.cyclingcoach
 │   ├── NutritionController.kt # implements generated NutritionApi
 │   ├── NutritionService.kt    # calls AI with ride/workout context, persists result
 │   └── NutritionRepository.kt
-├── sync/                # Garmin sync: OkHttp session auth, JobRunr job
-│   ├── GarminSyncJob.kt
-│   ├── GarminSyncService.kt
-│   ├── GarminAuthClient.kt        # performs SSO login; credentials used in-memory only
-│   ├── GarminSessionRepository.kt
+├── client/garmin/       # Framework-agnostic Garmin Connect client (no Spring dependency)
+│   ├── GarminClient.kt            # public API: login, refreshToken, getActivities, downloadTcx
+│   ├── GarminConfig.kt            # SSO + DI auth + API base URLs (data class)
+│   ├── GarminTokens.kt            # access/refresh token model with isExpired() helpers
+│   ├── TokenStore.kt              # pluggable persistence interface (save/load/delete)
+│   ├── GarminActivity.kt          # Garmin activity/activityType data models
+│   ├── GarminException.kt         # sealed hierarchy: GarminAuthException, GarminApiException, etc.
+│   └── internal/
+│       ├── GarminAuthService.kt   # SSO POST → serviceTicketId → DI token exchange (tries multiple client IDs)
+│       └── GarminHttpClient.kt    # OkHttp wrapper (GET, postForm, postJson)
+├── sync/                # Garmin sync: @Scheduled job, Spring wiring, TokenStore implementation
+│   ├── GarminSyncJob.kt           # @Scheduled every 6h + ApplicationReadyEvent startup auth
+│   ├── GarminSyncService.kt       # orchestrates sync: fetches activity list, downloads TCX, persists via ActivityService
+│   ├── AsyncGarminSyncService.kt  # @Async wrapper using virtual thread executor (for non-blocking trigger endpoint)
+│   ├── GarminTokenStore.kt        # implements TokenStore; persists DI OAuth2 tokens to garmin_token table via jOOQ
+│   ├── GarminProperties.kt        # @ConfigurationProperties(prefix="sync.garmin"): email, password, initialFetchDays
 │   └── SyncController.kt          # implements generated SyncApi
 ├── settings/            # Zone thresholds (read-only API, configured via Spring properties)
 │   ├── SettingsController.kt  # implements generated SettingsApi
@@ -97,6 +110,47 @@ com.cyclingcoach
 │   └── jooq/            # jOOQ table/record classes
 └── CyclingCoachApplication.kt
 ```
+
+### Event-Driven Post-Sync Processing
+
+After `GarminSyncService` stores a new activity it publishes an `ActivityStoredEvent` via Spring's `ApplicationEventPublisher`. Listeners run in the same thread (synchronous, ordered) so no extra infrastructure is needed.
+
+```
+GarminSyncService
+  └─ publishes ActivityStoredEvent(activityId, date)
+       │
+       ├─ RideService          @EventListener — parses TCX, computes NP/IF/TSS/best-powers, writes Ride row
+       │                        also auto-detects FTP (bestPower20min × 0.95) and records FtpTest if improved
+       │
+       └─ TrainingLoadService  @EventListener(condition) — runs after RideService writes TSS;
+                                recalculates CTL/ATL/TSB chain forward from event.date
+```
+
+**Why synchronous events instead of direct calls:**
+- `GarminSyncService` stays decoupled from `RideService` and `TrainingLoadService`
+- Ordering is explicit (ride must be computed before training load needs its TSS)
+- No message broker needed for a single-node app
+- Easy to test each listener in isolation with a synthetic event
+
+**Ordering guarantee:** Spring `@EventListener` methods on the same event run in declaration order within the same `ApplicationContext`. To make the order explicit, annotate `TrainingLoadService`'s listener with `@Order(2)` and `RideService`'s with `@Order(1)`.
+
+**Event class** (in `sync/` package, owned by the publisher):
+```kotlin
+data class ActivityStoredEvent(val activityId: Long, val date: LocalDate)
+```
+
+**Startup consistency check** — `RideService` also listens to `ApplicationReadyEvent` and queries for any `Activity` row that has no corresponding `Ride` row (crash-gap or first-run). For each orphan it directly calls its own `computeFromActivity(activityId)`, which is the same method the `ActivityStoredEvent` listener calls. This closes the gap where the process died after persisting an activity but before the calculation completed:
+
+```
+On ApplicationReadyEvent:
+  SELECT a.id, a.start_time FROM activity a
+  LEFT JOIN ride r ON r.activity_id = a.id
+  WHERE r.id IS NULL
+  → for each result: computeFromActivity(activityId)
+  → then: TrainingLoadService.recalculateFrom(earliestOrphanDate)
+```
+
+TrainingLoad is recalculated once after all orphans are processed (not per-activity) to avoid redundant chain walks.
 
 ### Key Backend Entities
 
@@ -161,8 +215,8 @@ com.cyclingcoach
 - postRide (TEXT — recovery window, protein + carb targets)
 - generatedAt
 
-**GarminSession** — Persisted Garmin SSO session cookies obtained after a successful login. Credentials are never stored — only the resulting tokens. When the session expires the user re-authenticates via `POST /api/sync/authenticate`.
-- id, sessionCookies (TEXT, serialized OkHttp cookie jar), expiresAt, createdAt
+**GarminTokens** (`garmin_token` table) — Persisted DI OAuth2 access and refresh tokens from a successful Garmin SSO login. Credentials are never stored. `GarminClient` automatically refreshes the access token before expiry; falls back to full re-auth using in-memory credentials from startup. When the refresh token expires the app re-authenticates on startup from `sync.garmin.email`/`sync.garmin.password` env vars.
+- id, access_token, refresh_token, di_client_id, access_token_expires_at, refresh_token_expires_at, created_at
 
 ### Database Schema
 
@@ -298,11 +352,14 @@ CREATE TABLE nutrition_plan (
     )
 );
 
--- Session cookies from Garmin SSO; credentials are never persisted
-CREATE TABLE garmin_session (
+-- DI OAuth2 tokens from Garmin authentication; credentials are never persisted
+CREATE TABLE garmin_token (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    session_cookies TEXT NOT NULL,  -- serialized OkHttp cookie jar (JSON)
-    expires_at TEXT,
+    access_token TEXT NOT NULL,
+    refresh_token TEXT NOT NULL,
+    di_client_id TEXT NOT NULL DEFAULT '',
+    access_token_expires_at TEXT NOT NULL,
+    refresh_token_expires_at TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -489,7 +546,7 @@ src/app
 - All configuration via `application.yml` / environment variables (no write API)
 - AI provider: `AI_PROVIDER=ollama|anthropic`, model: `AI_MODEL=...`
 - Zone thresholds: `cycling.zones.power.*`, `cycling.zones.hr.*`
-- Garmin credentials are NOT stored — user authenticates once via `POST /api/sync/authenticate`; session token persisted in DB
+- Garmin auth: `sync.garmin.email` + `sync.garmin.password` env vars drive startup login; DI OAuth2 tokens persisted in `garmin_token` table; credentials never stored
 - Frontend reads current config from `GET /api/settings` (read-only projection of Spring properties)
 
 ## Deployment
@@ -543,15 +600,15 @@ CMD ["java", "-jar", "app.jar"]
 4. Angular services are ready to inject — no hand-written HTTP calls
 
 ### Local Dev
-1. `ng serve` (frontend on :4200, proxy to backend :8080)
-2. `mvn spring-boot:run` (backend on :8080)
-3. Garmin sync runs via JobRunr scheduler
+1. `mvn spring-boot:run` (backend on :8080)
+2. `ng serve` (frontend on :4200, proxies API to :8080)
+3. Garmin sync fires automatically every 6 h via `@Scheduled`; trigger manually via `POST /api/sync/trigger`
 
 ### API Endpoints (Phase 1)
 ```
 GET    /api/activities              - list activities
 GET    /api/activities/{id}         - activity detail
-POST   /api/sync/authenticate        - SSO login (credentials in body, never stored; session token saved to DB)
+POST   /api/sync/authenticate        - SSO login (credentials in body, never stored; DI OAuth2 tokens saved to DB)
 POST   /api/sync/trigger             - trigger Garmin sync (requires valid session)
 GET    /api/sync/status              - session validity + last sync time
 GET    /api/calendar                - calendar data
@@ -574,16 +631,16 @@ GET    /health                      - health check
 
 ## MVP Scope (Phase 1)
 1. jOOQ + Flyway schema setup
-2. Garmin sync via OkHttp + JobRunr
+2. Garmin sync via Spring RestClient + `@Scheduled`
 3. TCX parsing from synced Garmin data
-4. Ride calculation from TCX (NP, IF, TSS)
-5. training_load chain update after each sync (CTL/ATL/TSB)
+4. `ActivityStoredEvent` → `RideService` computes NP/IF/TSS/best-powers, auto-detects FTP
+5. `ActivityStoredEvent` → `TrainingLoadService` recalculates CTL/ATL/TSB chain from earliest affected date
 6. Activity list + detail pages (TSS visible on detail)
 7. Performance Management Chart (CTL/ATL/TSB)
 8. Overlay chart with HR/power/speed/grade
 9. GPX map with Leaflet
 10. Activity calendar
-11. SQLite persistence
+11. SQLite persistence (single-file, WAL mode)
 
 ## Out of Scope (Later)
 - Social features
