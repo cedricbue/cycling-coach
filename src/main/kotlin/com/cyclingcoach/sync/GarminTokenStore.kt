@@ -11,7 +11,6 @@ import java.time.Instant
 class GarminTokenStore(
     private val dsl: DSLContext,
 ) : TokenStore {
-
     override fun save(tokens: GarminTokens) {
         dsl.deleteFrom(GARMIN_TOKEN).execute()
         dsl
@@ -33,8 +32,7 @@ class GarminTokenStore(
                     GARMIN_TOKEN.DI_CLIENT_ID,
                     GARMIN_TOKEN.ACCESS_TOKEN_EXPIRES_AT,
                     GARMIN_TOKEN.REFRESH_TOKEN_EXPIRES_AT,
-                )
-                .from(GARMIN_TOKEN)
+                ).from(GARMIN_TOKEN)
                 .orderBy(GARMIN_TOKEN.CREATED_AT.desc())
                 .limit(1)
                 .fetchOne() ?: return null

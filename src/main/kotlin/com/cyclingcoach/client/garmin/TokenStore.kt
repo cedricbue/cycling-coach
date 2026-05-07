@@ -6,6 +6,8 @@ package com.cyclingcoach.client.garmin
  */
 interface TokenStore {
     fun save(tokens: GarminTokens)
+
     fun load(): GarminTokens?
+
     fun delete()
 }

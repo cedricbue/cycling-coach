@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service
 class AsyncGarminSyncService(
     private val garminSyncService: GarminSyncService,
 ) {
-
     @Async(VIRTUAL_THREAD_EXECUTOR)
     fun syncActivities() {
         garminSyncService.syncActivities()

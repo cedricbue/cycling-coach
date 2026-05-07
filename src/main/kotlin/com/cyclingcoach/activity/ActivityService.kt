@@ -14,32 +14,19 @@ class ActivityService(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    /**
-     * Persists the activity if it hasn't been seen before (dedup on externalId).
-     * Fires ActivityStoredEvent for new activities so downstream processing is triggered.
-     * Returns true if the activity was new and stored.
-     */
-    fun storeIfNew(
-        externalId: String,
-        name: String?,
-        startTimeGmt: String,
-        rawTcx: String,
-    ): Boolean {
-        if (activityRepository.existsByExternalId(externalId)) {
-            log.debug("Activity {} already exists — skipping", externalId)
-            return false
+    fun storeAll(activities: List<ActivityInput>) {
+        for (activity in activities) {
+            val id = activityRepository.saveIfNew(activity) ?: continue
+            log.debug("Stored new activity {} (id={})", activity.externalId, id)
+            eventPublisher.publishEvent(ActivityStoredEvent(id, parseDate(activity.startTimeGmt)))
         }
-        val activityId = activityRepository.save(externalId, name, startTimeGmt, rawTcx)
-        log.info("Stored new activity {} (id={})", externalId, activityId)
-
-        val date = parseDate(startTimeGmt)
-        eventPublisher.publishEvent(ActivityStoredEvent(activityId, date))
-        return true
     }
 
     fun existsByExternalId(externalId: String): Boolean = activityRepository.existsByExternalId(externalId)
 
-    fun findLastSyncTime(): LocalDateTime? = activityRepository.findLastSyncTime()
+    fun findExistingExternalIds(externalIds: Collection<String>): Set<String> = activityRepository.findExistingExternalIds(externalIds)
+
+    fun findLatestStartTime(): LocalDate? = activityRepository.findLatestStartTime()?.let { parseDate(it) }
 
     private fun parseDate(startTimeGmt: String): LocalDate {
         val formatters =

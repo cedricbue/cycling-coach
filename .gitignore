@@ -13,11 +13,13 @@ node_modules/
 dist/
 .angular/
 
+# Generated frontend API (openapi-generator output)
+frontend/src/app/core/api/
+
 # SQLite
 *.db
 *.db-shm
 *.db-wal
-data/
 
 # Environment
 .env
