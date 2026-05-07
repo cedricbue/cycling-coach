@@ -1,0 +1,14 @@
+services:
+  cycling-coach:
+    build: ..
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./data:/app/data   # SQLite DB persists on the host across restarts
+    environment:
+      GARMIN_EMAIL: ${GARMIN_EMAIL}
+      GARMIN_PASSWORD: ${GARMIN_PASSWORD}
+      AI_PROVIDER: ${AI_PROVIDER:-ollama}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    restart: unless-stopped
