@@ -6,22 +6,22 @@ Personal road cycling training analysis tool. Analyze rides from Garmin Connect 
 ## Tech Stack
 
 ### Backend
-| Component | Choice | Notes |
-|---|---|---|
-| Framework | Spring Boot 4.0.x | Latest stable |
-| Language | Kotlin 2.2.x | Type safety, conciseness |
-| SQL | jOOQ 3.19.x | Type-safe queries, code generation from Flyway schema |
-| Migrations | Flyway 11.x | Versioned schema migrations |
-| Database | SQLite (org.xerial:sqlite-jdbc) | File-based, backup-friendly, no server |
-| AI Integration | Spring AI 1.0.x | Ollama and Anthropic as switchable options (not fallback) |
-| Garmin API | OkHttp + manual endpoints | Control over auth, no reliable Java wrapper |
-| Job Scheduling | JobRunr Spring Boot Starter 8.x | Auto-configured via `jobrunr-spring-boot-3-starter` |
-| TCX Parsing | Jackson XML + JAXB | Standard Java XML, parse TCX from DB storage |
-| API Spec | OpenAPI 3.1 YAML | Spec-first; lives in `api-spec/cycling-coach-api.yaml` |
-| API Generator | openapi-generator-maven-plugin 7.x | Generates Spring controller interfaces + DTOs from spec; implementations provided by domain services |
-| DTO Mapping | MapStruct | Compile-time mapping from jOOQ models to generated DTOs |
-| Metrics | Micrometer + Prometheus | Observability |
-| Testing | WireMock | Mock Garmin/external APIs |
+| Component | Choice                               | Notes                                                                                                |
+|---|--------------------------------------|------------------------------------------------------------------------------------------------------|
+| Framework | Spring Boot 4.0.x (4.0.6)           | Latest stable                                                                                        |
+| Language | Kotlin 2.3.x (2.3.21)               | JVM target 25; type safety, conciseness                                                              |
+| SQL | jOOQ 3.19.x (3.19.32)               | Type-safe queries, code generation from Flyway schema                                                |
+| Migrations | Flyway 11.x (11.14.1)               | Versioned schema migrations; SQLite supported in core                                                |
+| Database | SQLite (org.xerial:sqlite-jdbc)      | File-based, backup-friendly, no server                                                               |
+| AI Integration | Spring AI 2.0.x (add when GA)       | Ollama and Anthropic as switchable options (not fallback); deferred until 2.0 GA                     |
+| Garmin API | Spring RestClient + manual endpoints | Built-in HTTP client; no OkHttp needed                                                               |
+| Job Scheduling | Spring `@Scheduled`                  | Built-in; 6h default interval, configurable via `scheduling.sync-interval-ms`                       |
+| TCX Parsing | Jackson XML (tools.jackson)          | Jackson 3 coordinates; parse TCX from DB storage                                                     |
+| API Spec | OpenAPI 3.1 YAML                     | Spec-first; lives in `api-spec/cycling-coach-api.yaml`                                               |
+| API Generator | openapi-generator-maven-plugin 7.x   | Generates Spring controller interfaces + DTOs from spec; implementations provided by domain services |
+| DTO Mapping | MapStruct                            | Compile-time mapping from jOOQ models to generated DTOs                                              |
+| Metrics | Micrometer + Prometheus              | Observability                                                                                        |
+| Testing | WireMock                             | Mock Garmin/external APIs                                                                            |
 
 ### Frontend
 | Component | Choice | Notes |
@@ -82,9 +82,9 @@ com.cyclingcoach
 │   ├── NutritionController.kt # implements generated NutritionApi
 │   ├── NutritionService.kt    # calls AI with ride/workout context, persists result
 │   └── NutritionRepository.kt
-├── sync/                # Garmin sync: OkHttp session auth, JobRunr job
-│   ├── GarminSyncJob.kt
-│   ├── GarminSyncService.kt
+├── sync/                # Garmin sync: Spring RestClient session auth, @Scheduled job
+│   ├── GarminSyncJob.kt           # @Scheduled every 6h; fires ActivityStoredEvent per new activity
+│   ├── GarminSyncService.kt       # downloads TCX, persists Activity, publishes events
 │   ├── GarminAuthClient.kt        # performs SSO login; credentials used in-memory only
 │   ├── GarminSessionRepository.kt
 │   └── SyncController.kt          # implements generated SyncApi
@@ -97,6 +97,47 @@ com.cyclingcoach
 │   └── jooq/            # jOOQ table/record classes
 └── CyclingCoachApplication.kt
 ```
+
+### Event-Driven Post-Sync Processing
+
+After `GarminSyncService` stores a new activity it publishes an `ActivityStoredEvent` via Spring's `ApplicationEventPublisher`. Listeners run in the same thread (synchronous, ordered) so no extra infrastructure is needed.
+
+```
+GarminSyncService
+  └─ publishes ActivityStoredEvent(activityId, date)
+       │
+       ├─ RideService          @EventListener — parses TCX, computes NP/IF/TSS/best-powers, writes Ride row
+       │                        also auto-detects FTP (bestPower20min × 0.95) and records FtpTest if improved
+       │
+       └─ TrainingLoadService  @EventListener(condition) — runs after RideService writes TSS;
+                                recalculates CTL/ATL/TSB chain forward from event.date
+```
+
+**Why synchronous events instead of direct calls:**
+- `GarminSyncService` stays decoupled from `RideService` and `TrainingLoadService`
+- Ordering is explicit (ride must be computed before training load needs its TSS)
+- No message broker needed for a single-node app
+- Easy to test each listener in isolation with a synthetic event
+
+**Ordering guarantee:** Spring `@EventListener` methods on the same event run in declaration order within the same `ApplicationContext`. To make the order explicit, annotate `TrainingLoadService`'s listener with `@Order(2)` and `RideService`'s with `@Order(1)`.
+
+**Event class** (in `sync/` package, owned by the publisher):
+```kotlin
+data class ActivityStoredEvent(val activityId: Long, val date: LocalDate)
+```
+
+**Startup consistency check** — `RideService` also listens to `ApplicationReadyEvent` and queries for any `Activity` row that has no corresponding `Ride` row (crash-gap or first-run). For each orphan it directly calls its own `computeFromActivity(activityId)`, which is the same method the `ActivityStoredEvent` listener calls. This closes the gap where the process died after persisting an activity but before the calculation completed:
+
+```
+On ApplicationReadyEvent:
+  SELECT a.id, a.start_time FROM activity a
+  LEFT JOIN ride r ON r.activity_id = a.id
+  WHERE r.id IS NULL
+  → for each result: computeFromActivity(activityId)
+  → then: TrainingLoadService.recalculateFrom(earliestOrphanDate)
+```
+
+TrainingLoad is recalculated once after all orphans are processed (not per-activity) to avoid redundant chain walks.
 
 ### Key Backend Entities
 
@@ -543,9 +584,9 @@ CMD ["java", "-jar", "app.jar"]
 4. Angular services are ready to inject — no hand-written HTTP calls
 
 ### Local Dev
-1. `ng serve` (frontend on :4200, proxy to backend :8080)
-2. `mvn spring-boot:run` (backend on :8080)
-3. Garmin sync runs via JobRunr scheduler
+1. `mvn spring-boot:run` (backend on :8001)
+2. `ng serve` (frontend on :4200, proxies API to :8001)
+3. Garmin sync fires automatically every 6 h via `@Scheduled`; trigger manually via `POST /api/sync/trigger`
 
 ### API Endpoints (Phase 1)
 ```
@@ -574,16 +615,16 @@ GET    /health                      - health check
 
 ## MVP Scope (Phase 1)
 1. jOOQ + Flyway schema setup
-2. Garmin sync via OkHttp + JobRunr
+2. Garmin sync via Spring RestClient + `@Scheduled`
 3. TCX parsing from synced Garmin data
-4. Ride calculation from TCX (NP, IF, TSS)
-5. training_load chain update after each sync (CTL/ATL/TSB)
+4. `ActivityStoredEvent` → `RideService` computes NP/IF/TSS/best-powers, auto-detects FTP
+5. `ActivityStoredEvent` → `TrainingLoadService` recalculates CTL/ATL/TSB chain from earliest affected date
 6. Activity list + detail pages (TSS visible on detail)
 7. Performance Management Chart (CTL/ATL/TSB)
 8. Overlay chart with HR/power/speed/grade
 9. GPX map with Leaflet
 10. Activity calendar
-11. SQLite persistence
+11. SQLite persistence (single-file, WAL mode)
 
 ## Out of Scope (Later)
 - Social features

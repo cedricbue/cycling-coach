@@ -1,0 +1,371 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>4.0.6</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.cyclingcoach</groupId>
+    <artifactId>cycling-coach</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>cycling-coach</name>
+    <description>Personal road cycling training analysis tool</description>
+    <packaging>jar</packaging>
+
+    <properties>
+        <java.version>25</java.version>
+        <kotlin.version>2.3.21</kotlin.version>
+        <mapstruct.version>1.6.3</mapstruct.version>
+        <jooq.version>3.19.32</jooq.version>
+        <sqlite.version>3.47.0.0</sqlite.version>
+        <mockk.version>1.13.17</mockk.version>
+        <wiremock.version>3.5.4</wiremock.version>
+        <scheduling.sync-interval-ms>21600000</scheduling.sync-interval-ms>
+        <openapi-generator.version>7.22.0</openapi-generator.version>
+        <springdoc.version>3.0.3</springdoc.version>
+        <frontend-maven-plugin.version>1.15.0</frontend-maven-plugin.version>
+        <node.version>v20.19.0</node.version>
+        <skip.frontend>true</skip.frontend>
+    </properties>
+
+    <dependencies>
+        <!-- Spring Boot -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!-- jOOQ + SQLite -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jooq</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.xerial</groupId>
+            <artifactId>sqlite-jdbc</artifactId>
+            <version>${sqlite.version}</version>
+        </dependency>
+
+        <!-- Flyway (SQLite supported natively by flyway-core in v11+) -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+
+
+
+        <!-- Jackson XML (TCX parsing) — Jackson 3 coordinates -->
+        <dependency>
+            <groupId>tools.jackson.dataformat</groupId>
+            <artifactId>jackson-dataformat-xml</artifactId>
+        </dependency>
+
+        <!-- MapStruct -->
+        <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct</artifactId>
+            <version>${mapstruct.version}</version>
+        </dependency>
+
+        <!-- Kotlin -->
+        <dependency>
+            <groupId>org.jetbrains.kotlin</groupId>
+            <artifactId>kotlin-reflect</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.jetbrains.kotlin</groupId>
+            <artifactId>kotlin-stdlib</artifactId>
+        </dependency>
+
+        <!-- Micrometer Prometheus -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+
+        <!-- springdoc 3.x (Spring Boot 4 compatible) — brings swagger-annotations transitively -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>${springdoc.version}</version>
+        </dependency>
+
+        <!-- Test -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.mockk</groupId>
+            <artifactId>mockk-jvm</artifactId>
+            <version>${mockk.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.marcinziolo</groupId>
+            <artifactId>kotlin-wiremock</artifactId>
+            <version>2.1.1</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <sourceDirectory>${project.basedir}/src/main/kotlin</sourceDirectory>
+        <testSourceDirectory>${project.basedir}/src/test/kotlin</testSourceDirectory>
+
+        <plugins>
+
+            <!-- Kotlin compiler -->
+            <plugin>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-maven-plugin</artifactId>
+                <version>${kotlin.version}</version>
+                <configuration>
+                    <args>
+                        <arg>-Xjsr305=strict</arg>
+                    </args>
+                    <compilerPlugins>
+                        <plugin>spring</plugin>
+                        <plugin>all-open</plugin>
+                    </compilerPlugins>
+                    <pluginOptions>
+                        <option>all-open:annotation=org.springframework.stereotype.Service</option>
+                        <option>all-open:annotation=org.springframework.stereotype.Repository</option>
+                        <option>all-open:annotation=org.springframework.stereotype.Component</option>
+                        <option>all-open:annotation=org.springframework.web.bind.annotation.RestController</option>
+                    </pluginOptions>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>kapt</id>
+                        <goals>
+                            <goal>kapt</goal>
+                        </goals>
+                        <configuration>
+                            <sourceDirs>
+                                <sourceDir>${project.basedir}/src/main/kotlin</sourceDir>
+                                <sourceDir>${project.build.directory}/generated-sources/openapi/src/main/kotlin</sourceDir>
+                            </sourceDirs>
+                            <annotationProcessorPaths>
+                                <annotationProcessorPath>
+                                    <groupId>org.mapstruct</groupId>
+                                    <artifactId>mapstruct-processor</artifactId>
+                                    <version>${mapstruct.version}</version>
+                                </annotationProcessorPath>
+                            </annotationProcessorPaths>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>compile</id>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                        <configuration>
+                            <sourceDirs>
+                                <sourceDir>${project.basedir}/src/main/kotlin</sourceDir>
+                                <sourceDir>${project.build.directory}/generated-sources/openapi/src/main/kotlin</sourceDir>
+                                <sourceDir>${project.build.directory}/generated-sources/jooq</sourceDir>
+                            </sourceDirs>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>test-compile</id>
+                        <goals>
+                            <goal>test-compile</goal>
+                        </goals>
+                        <configuration>
+                            <sourceDirs>
+                                <sourceDir>${project.basedir}/src/test/kotlin</sourceDir>
+                            </sourceDirs>
+                        </configuration>
+                    </execution>
+                </executions>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.jetbrains.kotlin</groupId>
+                        <artifactId>kotlin-maven-allopen</artifactId>
+                        <version>${kotlin.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.jetbrains.kotlin</groupId>
+                        <artifactId>kotlin-maven-noarg</artifactId>
+                        <version>${kotlin.version}</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
+
+            <!-- Spring Boot packaging -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+
+            <!-- OpenAPI Generator (two executions) -->
+            <plugin>
+                <groupId>org.openapitools</groupId>
+                <artifactId>openapi-generator-maven-plugin</artifactId>
+                <version>${openapi-generator.version}</version>
+                <executions>
+                    <!-- Backend: Kotlin Spring controller interfaces + DTOs -->
+                    <execution>
+                        <id>generate-backend</id>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                        <configuration>
+                            <inputSpec>${project.basedir}/src/main/resources/api-spec/cycling-coach-api.yaml</inputSpec>
+                            <generatorName>kotlin-spring</generatorName>
+                            <output>${project.build.directory}/generated-sources/openapi</output>
+                            <apiPackage>com.cyclingcoach.generated.api</apiPackage>
+                            <modelPackage>com.cyclingcoach.generated.model</modelPackage>
+                            <configOptions>
+                                <interfaceOnly>true</interfaceOnly>
+                                <useSpringBoot3>true</useSpringBoot3>
+                                <useTags>true</useTags>
+                                <enumPropertyNaming>UPPERCASE</enumPropertyNaming>
+                                <serializationLibrary>jackson</serializationLibrary>
+                            </configOptions>
+                        </configuration>
+                    </execution>
+                    <!-- Frontend: Angular services + TypeScript models -->
+                    <execution>
+                        <id>generate-frontend</id>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                        <configuration>
+                            <inputSpec>${project.basedir}/src/main/resources/api-spec/cycling-coach-api.yaml</inputSpec>
+                            <generatorName>typescript-angular</generatorName>
+                            <output>${project.basedir}/frontend/src/app/core/api</output>
+                            <configOptions>
+                                <ngVersion>17</ngVersion>
+                                <providedInRoot>true</providedInRoot>
+                                <withInterfaces>true</withInterfaces>
+                            </configOptions>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Frontend Maven Plugin (skipped by default until frontend dir exists) -->
+            <plugin>
+                <groupId>com.github.eirslett</groupId>
+                <artifactId>frontend-maven-plugin</artifactId>
+                <version>${frontend-maven-plugin.version}</version>
+                <configuration>
+                    <workingDirectory>frontend</workingDirectory>
+                    <installDirectory>target</installDirectory>
+                    <skip>${skip.frontend}</skip>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>install-node-npm</id>
+                        <goals>
+                            <goal>install-node-and-npm</goal>
+                        </goals>
+                        <configuration>
+                            <nodeVersion>${node.version}</nodeVersion>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>npm-install</id>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>ng-build</id>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <arguments>run build</arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Flyway Maven plugin: migrates ./data/cycling-coach.db at generate-sources
+                 so jOOQ codegen always sees an up-to-date schema. -->
+            <plugin>
+                <groupId>org.flywaydb</groupId>
+                <artifactId>flyway-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>flyway-migrate-for-codegen</id>
+                        <phase>generate-sources</phase>
+                        <goals><goal>migrate</goal></goals>
+                        <configuration>
+                            <url>jdbc:sqlite:./data/cycling-coach.db</url>
+                            <locations>filesystem:${project.basedir}/src/main/resources/db/migration</locations>
+                        </configuration>
+                    </execution>
+                </executions>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.xerial</groupId>
+                        <artifactId>sqlite-jdbc</artifactId>
+                        <version>${sqlite.version}</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
+
+            <!-- jOOQ Codegen: reads the migrated schema and generates type-safe Kotlin classes -->
+            <plugin>
+                <groupId>org.jooq</groupId>
+                <artifactId>jooq-codegen-maven</artifactId>
+                <version>${jooq.version}</version>
+                <executions>
+                    <execution>
+                        <id>jooq-generate</id>
+                        <phase>generate-sources</phase>
+                        <goals><goal>generate</goal></goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <jdbc>
+                        <driver>org.sqlite.JDBC</driver>
+                        <url>jdbc:sqlite:./data/cycling-coach.db</url>
+                    </jdbc>
+                    <generator>
+                        <name>org.jooq.codegen.KotlinGenerator</name>
+                        <database>
+                            <name>org.jooq.meta.sqlite.SQLiteDatabase</name>
+                            <includes>.*</includes>
+                            <excludes>flyway_schema_history</excludes>
+                        </database>
+                        <target>
+                            <packageName>com.cyclingcoach.generated.jooq</packageName>
+                            <directory>${project.build.directory}/generated-sources/jooq</directory>
+                        </target>
+                    </generator>
+                </configuration>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.xerial</groupId>
+                        <artifactId>sqlite-jdbc</artifactId>
+                        <version>${sqlite.version}</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
+
+        </plugins>
+    </build>
+
+</project>
