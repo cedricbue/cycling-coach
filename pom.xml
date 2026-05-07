@@ -31,7 +31,7 @@
         <springdoc.version>3.0.3</springdoc.version>
         <frontend-maven-plugin.version>1.15.0</frontend-maven-plugin.version>
         <node.version>v20.19.0</node.version>
-        <skip.frontend>true</skip.frontend>
+        <skip.frontend>false</skip.frontend>
     </properties>
 
     <dependencies>
@@ -279,7 +279,7 @@
                             <generatorName>typescript-angular</generatorName>
                             <output>${project.basedir}/frontend/src/app/core/api</output>
                             <configOptions>
-                                <ngVersion>17</ngVersion>
+                                <ngVersion>21</ngVersion>
                                 <providedInRoot>true</providedInRoot>
                                 <withInterfaces>true</withInterfaces>
                             </configOptions>
@@ -313,6 +313,16 @@
                         <goals>
                             <goal>npm</goal>
                         </goals>
+                    </execution>
+                    <execution>
+                        <id>ng-test</id>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <phase>test</phase>
+                        <configuration>
+                            <arguments>run test -- --watch=false</arguments>
+                        </configuration>
                     </execution>
                     <execution>
                         <id>ng-build</id>
