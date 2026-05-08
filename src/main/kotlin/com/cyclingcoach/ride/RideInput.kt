@@ -4,7 +4,11 @@ import java.time.LocalDate
 
 data class RideInput(
     val activityId: Long,
+    val externalId: String,
     val date: LocalDate,
+    val name: String? = null,
+    val startTime: String? = null,
+    val manufacturer: String? = null,
     val distanceMeters: Double?,
     val elevationGain: Double?,
     val elevationDescent: Double?,

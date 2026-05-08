@@ -1,0 +1,7 @@
+garmin:
+  connect:
+    activity:
+      initial-fetch-days: 90
+    weight:
+      initial-fetch-days: 90
+  interval-ms: 60000

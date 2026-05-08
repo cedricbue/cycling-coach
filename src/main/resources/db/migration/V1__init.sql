@@ -5,8 +5,6 @@ CREATE TABLE activity
 (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     external_id TEXT UNIQUE NOT NULL, -- Garmin activity ID, used for dedup
-    name        TEXT,
-    start_time  TEXT        NOT NULL,
     raw_tcx     TEXT        NOT NULL, -- source of truth; used for grade/altitude data
     raw_json    TEXT                  -- full Garmin Connect activity JSON; used for pre-calculated metrics
 );
@@ -21,8 +19,12 @@ CREATE TABLE bike
 CREATE TABLE ride
 (
     id                INTEGER PRIMARY KEY AUTOINCREMENT,
-    activity_id       INTEGER UNIQUE,
+    activity_id       INTEGER,          -- no UNIQUE: same external_id may get a new activity_id after reimport
+    external_id       TEXT UNIQUE NOT NULL,  -- Garmin activity ID, sole dedup key for ride
     date              TEXT NOT NULL,
+    name              TEXT,             -- activity name from Garmin JSON
+    start_time        TEXT,             -- GMT start time from Garmin JSON
+    manufacturer      TEXT,             -- device/app manufacturer (e.g. ZWIFT, WAHOO)
     distance          REAL,
     elevation_gain    REAL,
     elevation_descent REAL,

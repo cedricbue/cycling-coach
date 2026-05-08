@@ -1,6 +1,5 @@
 package com.cyclingcoach.pmc
 
-import com.cyclingcoach.ride.RideCalculatedEvent
 import io.mockk.every
 import io.mockk.justRun
 import io.mockk.slot
@@ -27,7 +26,7 @@ class TrainingLoadServiceTest {
         every { repository.findDailyTssSince(date) } returns mapOf(date to 50.0)
         justRun { repository.upsert(any(), any(), any(), any(), any()) }
 
-        service.onRideCalculated(RideCalculatedEvent(1L, 1L, date, 50.0))
+        service.recalculateFrom(date)
 
         verify { repository.findDailyTssSince(date) }
     }

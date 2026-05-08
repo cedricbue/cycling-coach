@@ -11,8 +11,8 @@ servers:
 tags:
   - name: rides
     description: Synced rides — list and detail
-  - name: sync
-    description: Garmin SSO authentication and activity sync
+  - name: garmin
+    description: Garmin Connect sync and authentication
   - name: calendar
     description: Monthly calendar aggregation of ride data
   - name: pmc
@@ -30,13 +30,13 @@ tags:
 
 paths:
 
-  # ── Sync ────────────────────────────────────────────────────────────────────
+  # ── Garmin ──────────────────────────────────────────────────────────────────
 
-  /api/sync/trigger:
+  /api/garmin/sync:
     post:
-      tags: [ sync ]
-      operationId: triggerSync
-      summary: Trigger a manual Garmin activity sync. Authentication is handled transparently by the backend using GARMIN_EMAIL/GARMIN_PASSWORD env vars.
+      tags: [ garmin ]
+      operationId: triggerGarminSync
+      summary: Trigger a manual Garmin Connect sync (activities, weight, …). Authentication is handled transparently using GARMIN_EMAIL/GARMIN_PASSWORD env vars.
       responses:
         "202":
           description: Sync job enqueued
@@ -432,6 +432,8 @@ components:
         date:
           type: string
           format: date
+        manufacturer:
+          type: string
         distanceKm:
           type: number
           format: double
@@ -560,6 +562,8 @@ components:
         startTime:
           type: string
           format: date-time
+        manufacturer:
+          type: string
         metrics:
           $ref: "#/components/schemas/RideMetrics"
 

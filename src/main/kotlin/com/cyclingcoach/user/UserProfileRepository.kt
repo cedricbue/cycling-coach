@@ -6,27 +6,27 @@ import org.springframework.stereotype.Repository
 import java.time.LocalDate
 
 @Repository
-class UserProfileRepository(private val dsl: DSLContext) {
-
+class UserProfileRepository(
+    private val dsl: DSLContext,
+) {
     fun findCurrentFtp(): Double? =
-        dsl.select(USER_PROFILE.CURRENT_FTP)
+        dsl
+            .select(USER_PROFILE.CURRENT_FTP)
             .from(USER_PROFILE)
             .where(USER_PROFILE.ID.eq(1))
             .fetchOne(USER_PROFILE.CURRENT_FTP)
             ?.toDouble()
 
-    fun findCurrentWeightKg(): Double? =
-        dsl.select(USER_PROFILE.CURRENT_WEIGHT_KG)
-            .from(USER_PROFILE)
-            .where(USER_PROFILE.ID.eq(1))
-            .fetchOne(USER_PROFILE.CURRENT_WEIGHT_KG)
-            ?.toDouble()
-
-    fun updateCurrentFtp(ftp: Double, updatedAt: LocalDate) {
-        dsl.update(USER_PROFILE)
+    fun updateCurrentFtp(
+        ftp: Double,
+        updatedAt: LocalDate,
+    ) {
+        dsl
+            .update(USER_PROFILE)
             .set(USER_PROFILE.CURRENT_FTP, ftp.toFloat())
             .set(USER_PROFILE.UPDATED_AT, updatedAt.toString())
             .where(USER_PROFILE.ID.eq(1))
             .execute()
     }
 }
+

@@ -1,13 +1,11 @@
 package com.cyclingcoach.ftp
 
-import com.cyclingcoach.activity.ActivityRepository
 import com.cyclingcoach.ride.RideCalculatedEvent
 import com.cyclingcoach.ride.RideMetrics
-import com.cyclingcoach.ride.RideRepository
-import com.cyclingcoach.user.UserProfileRepository
+import com.cyclingcoach.ride.RideService
+import com.cyclingcoach.user.UserProfileService
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
-import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
 import java.time.LocalDate
 import kotlin.math.abs
@@ -21,20 +19,18 @@ import kotlin.math.roundToInt
  */
 @Service
 class FtpTestDetectionService(
-    private val activityRepository: ActivityRepository,
-    private val rideRepository: RideRepository,
-    private val userProfileRepository: UserProfileRepository,
+    private val rideService: RideService,
+    private val userProfileService: UserProfileService,
     private val ftpTestRepository: FtpTestRepository,
     private val eventPublisher: ApplicationEventPublisher,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    @EventListener
-    fun onRideCalculated(event: RideCalculatedEvent) {
-        val activityName = activityRepository.findNameById(event.activityId) ?: return
+    fun detectFtpTest(event: RideCalculatedEvent) {
+        val activityName = rideService.findNameByRideId(event.rideId) ?: return
         if (!isFtpTestName(activityName)) return
 
-        val metrics = rideRepository.findMetricsById(event.rideId)
+        val metrics = rideService.findMetricsById(event.rideId)
         if (metrics == null) {
             log.warn("No ride metrics found for rideId={} — skipping FTP detection", event.rideId)
             return
@@ -43,15 +39,17 @@ class FtpTestDetectionService(
         val testType = classifyTestType(activityName, metrics)
         log.debug("FTP test detected for rideId={}: name='{}' type={}", event.rideId, activityName, testType)
 
+        val weightKg = userProfileService.findWeightKgAt(event.date)
+
         val calculatedFtp = calculateFtp(testType, metrics) ?: run {
             log.info("FTP test rideId={} type={}: insufficient power data — saving to ftp_test without FTP update", event.rideId, testType)
-            ftpTestRepository.save(event.date, 0.0, testType, "SKIPPED: insufficient power data")
+            ftpTestRepository.save(event.date, 0.0, testType, "SKIPPED: insufficient power data", weightKg)
             return
         }
 
-        val (validatedFtp, notes) = validate(calculatedFtp, metrics, userProfileRepository.findCurrentFtp())
+        val (validatedFtp, notes) = validate(calculatedFtp, metrics, userProfileService.findCurrentFtp())
 
-        ftpTestRepository.save(event.date, validatedFtp ?: calculatedFtp, testType, notes)
+        ftpTestRepository.save(event.date, validatedFtp ?: calculatedFtp, testType, notes, weightKg)
 
         if (validatedFtp == null) {
             log.info("FTP test rideId={} type={} calculatedFtp={}W REJECTED ({})", event.rideId, testType, calculatedFtp.roundToInt(), notes)
