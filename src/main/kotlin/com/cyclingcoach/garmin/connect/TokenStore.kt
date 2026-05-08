@@ -1,4 +1,4 @@
-package com.cyclingcoach.client.garmin
+package com.cyclingcoach.garmin.connect
 
 /**
  * Pluggable persistence for Garmin OAuth tokens.

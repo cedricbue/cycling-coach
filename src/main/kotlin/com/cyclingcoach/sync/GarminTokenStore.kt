@@ -1,7 +1,7 @@
 package com.cyclingcoach.sync
 
-import com.cyclingcoach.client.garmin.GarminTokens
-import com.cyclingcoach.client.garmin.TokenStore
+import com.cyclingcoach.garmin.connect.GarminTokens
+import com.cyclingcoach.garmin.connect.TokenStore
 import com.cyclingcoach.generated.jooq.tables.references.GARMIN_TOKEN
 import org.jooq.DSLContext
 import org.springframework.stereotype.Repository

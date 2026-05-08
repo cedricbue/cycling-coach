@@ -1,7 +1,7 @@
-package com.cyclingcoach.client.garmin
+package com.cyclingcoach.garmin.connect
 
-import com.cyclingcoach.client.garmin.internal.GarminAuthService
-import com.cyclingcoach.client.garmin.internal.GarminHttpClient
+import com.cyclingcoach.garmin.connect.internal.GarminAuthService
+import com.cyclingcoach.garmin.connect.internal.GarminHttpClient
 import org.slf4j.LoggerFactory
 import java.time.LocalDate
 
@@ -11,7 +11,7 @@ import java.time.LocalDate
  * Handles authentication (SSO + DI token exchange), automatic token refresh,
  * and provides an extensible API surface for fetching Garmin resources.
  */
-class GarminClient(
+class GarminConnect(
     private val config: GarminConfig,
     private val tokenStore: TokenStore,
 ) {

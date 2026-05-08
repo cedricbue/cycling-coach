@@ -1,8 +1,8 @@
-package com.cyclingcoach.ride
+package com.cyclingcoach.tcx
 
 import java.time.Instant
 
-data class RideData(
+data class TcxData(
     val timestamps: List<Instant>,
     val powerWatts: List<Int?>,
     val heartRateBpm: List<Int?>,

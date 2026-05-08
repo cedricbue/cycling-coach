@@ -1,12 +1,13 @@
-package com.cyclingcoach.client.garmin.internal
+package com.cyclingcoach.garmin.connect.internal
 
-import com.cyclingcoach.client.garmin.GarminApiException
-import com.cyclingcoach.client.garmin.GarminAuthException
-import com.cyclingcoach.client.garmin.GarminConfig
-import com.cyclingcoach.client.garmin.GarminMfaRequiredException
-import com.cyclingcoach.client.garmin.GarminTokenException
-import com.cyclingcoach.client.garmin.GarminTokens
+import com.cyclingcoach.garmin.connect.GarminApiException
+import com.cyclingcoach.garmin.connect.GarminAuthException
+import com.cyclingcoach.garmin.connect.GarminConfig
+import com.cyclingcoach.garmin.connect.GarminMfaRequiredException
+import com.cyclingcoach.garmin.connect.GarminTokenException
+import com.cyclingcoach.garmin.connect.GarminTokens
 import org.slf4j.LoggerFactory
+import java.net.URLEncoder
 import java.time.Instant
 import java.util.*
 
@@ -85,7 +86,7 @@ internal class GarminAuthService(
                 append("/mobile/api/login")
                 append("?clientId=").append(config.ssoClientId)
                 append("&locale=en-US")
-                append("&service=").append(java.net.URLEncoder.encode(config.ssoServiceUrl, Charsets.UTF_8))
+                append("&service=").append(URLEncoder.encode(config.ssoServiceUrl, Charsets.UTF_8))
             }
 
         val headers =

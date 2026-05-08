@@ -15,8 +15,8 @@ data class GarminProperties(
 ) {
     data class SyncProperties(
         val initialFetchDays: Int = 365,
-        val maxConcurrentDownloads: Int = 5,
-        val pageSize: Int = 100,
+        val maxConcurrentDownloads: Int = 2,
+        val pageSize: Int = 10,
         val intervalMs: Long = 21_600_000,
     )
 }

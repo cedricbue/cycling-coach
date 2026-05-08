@@ -2,7 +2,7 @@ package com.cyclingcoach.sync
 
 import com.cyclingcoach.activity.ActivityInput
 import com.cyclingcoach.activity.ActivityService
-import com.cyclingcoach.client.garmin.GarminClient
+import com.cyclingcoach.garmin.connect.GarminConnect
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
@@ -13,9 +13,10 @@ import org.springframework.stereotype.Service
 
 @Service
 class GarminSyncService(
-    private val garminClient: GarminClient,
+    private val garminClient: GarminConnect,
     private val activityService: ActivityService,
     private val garminProperties: GarminProperties,
+    private val syncCursorRepository: GarminSyncCursorRepository,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -35,7 +36,7 @@ class GarminSyncService(
             garminClient.login(garminProperties.email, garminProperties.password)
         }
         val since =
-            activityService.findLatestStartTime() ?: java.time.LocalDate
+            syncCursorRepository.findSince() ?: java.time.LocalDate
                 .now()
                 .minusDays(garminProperties.sync.initialFetchDays.toLong())
 
@@ -81,6 +82,7 @@ class GarminSyncService(
             if (activityPage.size < pageSize) break
             offset += pageSize
         }
+        activityService.findLatestStartTime()?.let { syncCursorRepository.updateSince(it) }
         log.info("Sync complete — {} new activities stored", newCount)
     }
 }

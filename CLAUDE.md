@@ -52,18 +52,20 @@ The API spec at `api-spec/cycling-coach-api.yaml` is the source of truth. `mvn g
 Packages are domain-scoped. Each domain owns its controller, service, repository, and MapStruct mapper. Controllers implement the generated interfaces from `generated/api/`; they never expose jOOQ records directly — MapStruct mappers convert them to generated DTOs.
 
 ```
-config/       — Spring, jOOQ, Flyway, JobRunr, Spring AI wiring only
-activity/     — Raw Garmin activity records (TCX stored as-is)
-ride/         — Computed cycling metrics from TCX (NP, IF, TSS, best powers)
-pmc/          — Training load chain: CTL/ATL/TSB per calendar day
-ftp/          — FTP history (auto-detected from 20min best power × 0.95, or estimated)
-calendar/     — Calendar aggregation queries
-training/     — Goal event, AI training plan, ZWO export
-coaching/     — Spring AI integration, on-demand ride analysis
-nutrition/    — AI-generated nutrition plans (per ride or planned workout)
-sync/         — Garmin SSO via OkHttp, JobRunr-scheduled sync job
-settings/     — Read-only projection of Spring properties (@ConfigurationProperties)
-generated/    — DO NOT EDIT: openapi-generator output + jOOQ codegen output
+config/           — Spring, jOOQ, Flyway, Spring AI, async, Garmin client wiring only
+activity/         — Raw Garmin activity records (TCX stored as-is)
+ride/             — Computed cycling metrics from TCX (NP, IF, TSS, best powers); event-driven pipeline
+pmc/              — Training load chain: CTL/ATL/TSB per calendar day
+tcx/              — Framework-agnostic StAX TCX parser (no Spring); reusable standalone
+ftp/              — FTP history (auto-detected from 20min best power × 0.95, or estimated)
+calendar/         — Calendar aggregation queries
+training/         — Goal event, AI training plan, ZWO export
+coaching/         — Spring AI integration, on-demand ride analysis
+nutrition/        — AI-generated nutrition plans (per ride or planned workout)
+garmin/connect/   — Framework-agnostic Garmin Connect client (GarminConnect, no Spring)
+sync/             — Spring wiring for Garmin sync: @Scheduled job, TokenStore, cursor tracking
+settings/         — Read-only projection of Spring properties (@ConfigurationProperties)
+generated/        — DO NOT EDIT: openapi-generator output + jOOQ codegen output
 ```
 
 ### Key Domain Rules
@@ -73,7 +75,7 @@ generated/    — DO NOT EDIT: openapi-generator output + jOOQ codegen output
 - TSB = CTL_yesterday − ATL_yesterday (computed from previous day's values, not today's).
 - FTP auto-detection: `bestPower20min × 0.95` from the ride's power stream.
 - AI responses (coach summary, training plan, nutrition plans) are **persisted on first call** — the AI is not re-invoked for the same resource unless the user explicitly regenerates.
-- Garmin credentials are **never stored** — only the session cookies from a successful SSO login (`GarminSession` table).
+- Garmin credentials are **never stored** — only the DI OAuth2 tokens from a successful SSO login (`garmin_token` table).
 - The `UserProfile` table always has exactly one row (id = 1).
 - `PlannedWorkout.workoutBlocks` is a JSON array of interval blocks (type, durationSeconds, powerLow %FTP, powerHigh %FTP, repeat) — used to render ZWO files for Zwift.
 

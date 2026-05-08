@@ -1,4 +1,4 @@
-package com.cyclingcoach.client.garmin
+package com.cyclingcoach.garmin.connect
 
 import java.time.Instant
 

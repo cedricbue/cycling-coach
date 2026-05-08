@@ -1,8 +1,8 @@
 package com.cyclingcoach.config
 
-import com.cyclingcoach.client.garmin.GarminClient
-import com.cyclingcoach.client.garmin.GarminConfig
-import com.cyclingcoach.client.garmin.TokenStore
+import com.cyclingcoach.garmin.connect.GarminConfig
+import com.cyclingcoach.garmin.connect.GarminConnect
+import com.cyclingcoach.garmin.connect.TokenStore
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -32,5 +32,5 @@ class GarminClientConfig {
     fun garminClient(
         garminConfig: GarminConfig,
         tokenStore: TokenStore,
-    ): GarminClient = GarminClient(garminConfig, tokenStore)
+    ): GarminConnect = GarminConnect(garminConfig, tokenStore)
 }

@@ -5,6 +5,7 @@ import com.cyclingcoach.activity.ActivityRepository
 import com.cyclingcoach.generated.jooq.tables.references.ACTIVITY
 import com.cyclingcoach.generated.jooq.tables.references.BIKE
 import com.cyclingcoach.generated.jooq.tables.references.FTP_TEST
+import com.cyclingcoach.generated.jooq.tables.references.GARMIN_SYNC_CURSOR
 import com.cyclingcoach.generated.jooq.tables.references.GARMIN_TOKEN
 import com.cyclingcoach.generated.jooq.tables.references.GOAL_EVENT
 import com.cyclingcoach.generated.jooq.tables.references.NUTRITION_PLAN
@@ -14,6 +15,7 @@ import com.cyclingcoach.generated.jooq.tables.references.TRAINING_LOAD
 import com.cyclingcoach.generated.jooq.tables.references.TRAINING_PLAN
 import com.cyclingcoach.generated.jooq.tables.references.TRAINING_WEEK
 import com.cyclingcoach.generated.jooq.tables.references.USER_WEIGHT
+import com.cyclingcoach.sync.GarminSyncCursorRepository
 import com.cyclingcoach.sync.GarminTokenStore
 import com.github.tomakehurst.wiremock.WireMockServer
 import com.github.tomakehurst.wiremock.client.WireMock.aResponse
@@ -50,6 +52,9 @@ abstract class AbstractApplicationIntegrationTest {
     @Autowired
     lateinit var garminTokenStore: GarminTokenStore
 
+    @Autowired
+    lateinit var syncCursorRepository: GarminSyncCursorRepository
+
     /** Wipe all data and reset WireMock stubs before every test. */
     @BeforeEach
     fun resetState() {
@@ -66,6 +71,7 @@ abstract class AbstractApplicationIntegrationTest {
         dsl.deleteFrom(USER_WEIGHT).execute()
         dsl.deleteFrom(BIKE).execute()
         dsl.deleteFrom(GARMIN_TOKEN).execute()
+        dsl.deleteFrom(GARMIN_SYNC_CURSOR).execute()
         wireMock.resetAll()
         stubGarminAuthFlow()
     }
@@ -86,6 +92,7 @@ abstract class AbstractApplicationIntegrationTest {
             registry.add("garmin.connect.sso-base-url") { "http://localhost:${wireMock.port()}" }
             registry.add("garmin.connect.di-auth-base-url") { "http://localhost:${wireMock.port()}" }
             registry.add("garmin.connect.api-base-url") { "http://localhost:${wireMock.port()}" }
+            registry.add("sync.garmin.sync.page-size") { "100" }
             // Stubs must exist before ApplicationReadyEvent fires GarminSyncJob.authenticateOnStartup
             stubGarminAuthFlow()
         }

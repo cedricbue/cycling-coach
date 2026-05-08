@@ -1,4 +1,4 @@
-package com.cyclingcoach.ride
+package com.cyclingcoach.tcx
 
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.data.Offset

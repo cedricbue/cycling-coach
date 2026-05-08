@@ -1,6 +1,6 @@
-package com.cyclingcoach.client.garmin.internal
+package com.cyclingcoach.garmin.connect.internal
 
-import com.cyclingcoach.client.garmin.GarminApiException
+import com.cyclingcoach.garmin.connect.GarminApiException
 import okhttp3.FormBody
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient

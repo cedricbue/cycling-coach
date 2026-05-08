@@ -11,6 +11,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 
 @Tag("integration")
@@ -147,26 +148,74 @@ class GarminSyncServiceIntegrationTest : AbstractApplicationIntegrationTest() {
     }
 
     @Test
-    fun `syncActivities uses latest stored activity start time as since on next sync`() {
+    fun `syncActivities writes cursor after successful sync and uses it on next run`() {
         stubActivityList(
             """[{"activityId":200,"activityName":"Base Ride","startTimeGMT":"2024-06-01 08:00:00","activityType":{"typeKey":"cycling"}}]""",
         )
         stubTcxDownload(200L, minimalTcx())
         garminSyncService.syncActivities()
 
-        // Second sync — verify startDate query param matches the stored activity's date
+        assertThat(syncCursorRepository.findSince()?.toString()).isEqualTo("2024-06-01")
+
+        // Second sync — cursor drives the startDate query param
         wireMock.stubFor(
             get(urlPathMatching("/activitylist-service/activities/search/activities"))
                 .withQueryParam("startDate", equalTo("2024-06-01"))
                 .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "application/json").withBody("[]")),
         )
-
         garminSyncService.syncActivities()
 
         wireMock.verify(
             getRequestedFor(urlPathMatching("/activitylist-service/activities/search/activities"))
                 .withQueryParam("startDate", equalTo("2024-06-01")),
         )
+    }
+
+    @Test
+    fun `syncActivities does not advance cursor when sync is aborted mid-pagination`() {
+        // Page 1 (newest): full page of 100 → triggers pagination to page 2
+        wireMock.stubFor(
+            get(urlPathMatching("/activitylist-service/activities/search/activities"))
+                .withQueryParam("start", equalTo("0"))
+                .willReturn(
+                    aResponse().withStatus(200).withHeader("Content-Type", "application/json")
+                        .withBody((1..100).joinToString(",") {
+                            """{"activityId":${300 + it},"activityName":"Ride $it","startTimeGMT":"2024-07-10 08:00:00","activityType":{"typeKey":"cycling"}}"""
+                        }.let { "[$it]" }),
+                ),
+        )
+        // Page 2 (older): simulate server error during fetch
+        wireMock.stubFor(
+            get(urlPathMatching("/activitylist-service/activities/search/activities"))
+                .withQueryParam("start", equalTo("100"))
+                .willReturn(aResponse().withStatus(500)),
+        )
+        (301..400).forEach { stubTcxDownload(it.toLong(), minimalTcx()) }
+
+        assertThrows<Exception> { garminSyncService.syncActivities() }
+
+        // Cursor must not have been written — next sync should retry from scratch
+        assertThat(syncCursorRepository.findSince()).isNull()
+
+        // Stub page 2 to succeed on the retry sync (older activities)
+        wireMock.stubFor(
+            get(urlPathMatching("/activitylist-service/activities/search/activities"))
+                .withQueryParam("start", equalTo("100"))
+                .willReturn(
+                    aResponse().withStatus(200).withHeader("Content-Type", "application/json")
+                        .withBody(
+                            """[{"activityId":401,"activityName":"Older Ride","startTimeGMT":"2024-06-01 08:00:00","activityType":{"typeKey":"cycling"}}]""",
+                        ),
+                ),
+        )
+        stubTcxDownload(401L, minimalTcx())
+
+        garminSyncService.syncActivities()
+
+        // Both the newest (already stored, deduped) and the previously-missing older ride are present
+        assertThat(activityRepository.existsByExternalId("301")).isTrue()
+        assertThat(activityRepository.existsByExternalId("401")).isTrue()
+        assertThat(syncCursorRepository.findSince()).isNotNull()
     }
 
     @Test

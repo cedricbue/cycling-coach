@@ -1,9 +1,10 @@
 package com.cyclingcoach.pmc
 
+import com.cyclingcoach.config.VIRTUAL_THREAD_EXECUTOR
 import com.cyclingcoach.ride.RideCalculatedEvent
 import org.slf4j.LoggerFactory
 import org.springframework.context.event.EventListener
-import org.springframework.core.annotation.Order
+import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 import java.time.LocalDate
 
@@ -12,8 +13,8 @@ class TrainingLoadService(private val repository: TrainingLoadRepository) {
 
     private val log = LoggerFactory.getLogger(javaClass)
 
+    @Async(VIRTUAL_THREAD_EXECUTOR)
     @EventListener
-    @Order(2)
     fun onRideCalculated(event: RideCalculatedEvent) {
         recalculateFrom(event.date)
     }

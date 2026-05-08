@@ -1,4 +1,4 @@
-package com.cyclingcoach.client.garmin
+package com.cyclingcoach.garmin.connect
 
 data class GarminConfig(
     val ssoBaseUrl: String = "https://sso.garmin.com",
