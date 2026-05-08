@@ -1,0 +1,141 @@
+<div class="detail-page">
+  <button mat-button (click)="goBack()" class="back-btn">
+    <mat-icon>arrow_back</mat-icon> Back to rides
+  </button>
+
+  @if (loading()) {
+    <div class="spinner-wrap">
+      <mat-spinner diameter="40" />
+    </div>
+  } @else if (error()) {
+    <div class="error">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ error() }}</span>
+    </div>
+  } @else if (!ride()) {
+    <div class="empty">
+      <mat-icon>directions_bike</mat-icon>
+      <p>Ride not found.</p>
+    </div>
+  } @else {
+    <h2 class="ride-title">{{ ride()!.name ?? 'Untitled Ride' }}</h2>
+    <p class="ride-meta">{{ ride()!.startTime | date:'EEEE, d MMMM yyyy · HH:mm' }}</p>
+
+    <!-- Overview -->
+    <mat-card class="section-card">
+      <mat-card-header><mat-card-title>Overview</mat-card-title></mat-card-header>
+      <mat-card-content>
+        <div class="kv-grid">
+          <span class="kv-label">Distance</span>
+          <span class="kv-value">{{ fmt(ride()!.metrics?.distanceKm) }} km</span>
+
+          <span class="kv-label">Duration</span>
+          <span class="kv-value">{{ formatDuration(ride()!.metrics?.durationSeconds) }}</span>
+
+          <span class="kv-label">Elevation gain</span>
+          <span class="kv-value">{{ fmtInt(ride()!.metrics?.elevationGainM) }} m</span>
+
+          <span class="kv-label">Elevation descent</span>
+          <span class="kv-value">{{ fmtInt(ride()!.metrics?.elevationDescentM) }} m</span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Power -->
+    <mat-card class="section-card">
+      <mat-card-header><mat-card-title>Power</mat-card-title></mat-card-header>
+      <mat-card-content>
+        <div class="kv-grid">
+          <span class="kv-label">Avg power</span>
+          <span class="kv-value">{{ fmtInt(ride()!.metrics?.avgPowerW) }} W</span>
+
+          <span class="kv-label">Max power</span>
+          <span class="kv-value">{{ fmtInt(ride()!.metrics?.maxPowerW) }} W</span>
+
+          <span class="kv-label">Normalized power (NP)</span>
+          <span class="kv-value">{{ fmtInt(ride()!.metrics?.normalizedPowerW) }} W</span>
+
+          <span class="kv-label">FTP at ride</span>
+          <span class="kv-value">{{ fmtInt(ride()!.metrics?.ftpAtRide) }} W</span>
+
+          <span class="kv-label">Intensity factor (IF)</span>
+          <span class="kv-value">{{ fmt(ride()!.metrics?.intensityFactor, 2) }}</span>
+
+          <span class="kv-label">TSS</span>
+          <span class="kv-value">{{ fmt(ride()!.metrics?.tss, 0) }}</span>
+
+          <span class="kv-label">W/kg</span>
+          <span class="kv-value">{{ fmt(ride()!.metrics?.wattsPerKg, 2) }}</span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Best powers -->
+    <mat-card class="section-card">
+      <mat-card-header><mat-card-title>Best Powers</mat-card-title></mat-card-header>
+      <mat-card-content>
+        <div class="kv-grid">
+          <span class="kv-label">5 s</span>
+          <span class="kv-value">{{ fmtInt(ride()!.metrics?.bestPower5sW) }} W</span>
+
+          <span class="kv-label">30 s</span>
+          <span class="kv-value">{{ fmtInt(ride()!.metrics?.bestPower30sW) }} W</span>
+
+          <span class="kv-label">1 min</span>
+          <span class="kv-value">{{ fmtInt(ride()!.metrics?.bestPower1minW) }} W</span>
+
+          <span class="kv-label">5 min</span>
+          <span class="kv-value">{{ fmtInt(ride()!.metrics?.bestPower5minW) }} W</span>
+
+          <span class="kv-label">10 min</span>
+          <span class="kv-value">{{ fmtInt(ride()!.metrics?.bestPower10minW) }} W</span>
+
+          <span class="kv-label">20 min</span>
+          <span class="kv-value">{{ fmtInt(ride()!.metrics?.bestPower20minW) }} W</span>
+
+          <span class="kv-label">60 min</span>
+          <span class="kv-value">{{ fmtInt(ride()!.metrics?.bestPower60minW) }} W</span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Heart rate & cadence -->
+    <mat-card class="section-card">
+      <mat-card-header><mat-card-title>Heart Rate &amp; Cadence</mat-card-title></mat-card-header>
+      <mat-card-content>
+        <div class="kv-grid">
+          <span class="kv-label">Avg HR</span>
+          <span class="kv-value">{{ fmtInt(ride()!.metrics?.avgHrBpm) }} bpm</span>
+
+          <span class="kv-label">Max HR</span>
+          <span class="kv-value">{{ fmtInt(ride()!.metrics?.maxHrBpm) }} bpm</span>
+
+          <span class="kv-label">Avg cadence</span>
+          <span class="kv-value">{{ fmtInt(ride()!.metrics?.avgCadenceRpm) }} rpm</span>
+
+          <span class="kv-label">Max cadence</span>
+          <span class="kv-value">{{ fmtInt(ride()!.metrics?.maxCadenceRpm) }} rpm</span>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Notes -->
+    @if (ride()!.metrics?.rpe != null || ride()!.metrics?.notes) {
+      <mat-card class="section-card">
+        <mat-card-header><mat-card-title>Notes</mat-card-title></mat-card-header>
+        <mat-card-content>
+          <div class="kv-grid">
+            @if (ride()!.metrics?.rpe != null) {
+              <span class="kv-label">RPE</span>
+              <span class="kv-value">{{ ride()!.metrics!.rpe }} / 10</span>
+            }
+            @if (ride()!.metrics?.notes) {
+              <span class="kv-label">Notes</span>
+              <span class="kv-value">{{ ride()!.metrics!.notes }}</span>
+            }
+          </div>
+        </mat-card-content>
+      </mat-card>
+    }
+  }
+</div>

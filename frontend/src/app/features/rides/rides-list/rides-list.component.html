@@ -1,0 +1,77 @@
+@if (loading()) {
+  <div class="spinner-wrap">
+    <mat-spinner diameter="40" />
+  </div>
+} @else if (error()) {
+  <div class="error">
+    <mat-icon>error_outline</mat-icon>
+    <span>{{ error() }}</span>
+  </div>
+} @else if (rides().length === 0) {
+  <div class="empty">
+    <mat-icon>directions_bike</mat-icon>
+    <p>No rides found. Sync your Garmin activities to get started.</p>
+  </div>
+} @else {
+  <div class="table-container">
+    <table mat-table [dataSource]="rides()" class="rides-table">
+
+      <ng-container matColumnDef="date">
+        <th mat-header-cell *matHeaderCellDef>Date</th>
+        <td mat-cell *matCellDef="let ride">
+          {{ ride.startTime | date:'dd MMM yyyy' }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="name">
+        <th mat-header-cell *matHeaderCellDef>Name</th>
+        <td mat-cell *matCellDef="let ride">{{ ride.name ?? '—' }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="distance">
+        <th mat-header-cell *matHeaderCellDef>Dist (km)</th>
+        <td mat-cell *matCellDef="let ride">
+          {{ ride.distanceKm != null ? (ride.distanceKm | number:'1.1-1') : '—' }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="duration">
+        <th mat-header-cell *matHeaderCellDef>Duration</th>
+        <td mat-cell *matCellDef="let ride">
+          {{ formatDuration(ride.durationSeconds) }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="avgPower">
+        <th mat-header-cell *matHeaderCellDef>Avg Power</th>
+        <td mat-cell *matCellDef="let ride">
+          {{ ride.avgPowerW != null ? (ride.avgPowerW | number:'1.0-0') + ' W' : '—' }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="tss">
+        <th mat-header-cell *matHeaderCellDef>TSS</th>
+        <td mat-cell *matCellDef="let ride">
+          {{ ride.tss != null ? (ride.tss | number:'1.0-0') : '—' }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="if">
+        <th mat-header-cell *matHeaderCellDef>IF</th>
+        <td mat-cell *matCellDef="let ride">
+          {{ ride.intensityFactor != null ? (ride.intensityFactor | number:'1.2-2') : '—' }}
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr
+        mat-row
+        *matRowDef="let ride; columns: displayedColumns"
+        class="ride-row"
+        (click)="goToDetail(ride.id)"
+      ></tr>
+    </table>
+
+    <p class="total-count">{{ totalElements() }} rides total</p>
+  </div>
+}

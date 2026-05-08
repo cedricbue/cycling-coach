@@ -3,7 +3,6 @@ package com.cyclingcoach.activity
 import com.cyclingcoach.generated.jooq.tables.Activity.Companion.ACTIVITY
 import org.jooq.DSLContext
 import org.springframework.stereotype.Repository
-
 @Repository
 class ActivityRepository(
     private val dsl: DSLContext,
@@ -52,4 +51,11 @@ class ActivityRepository(
             .from(ACTIVITY)
             .where(ACTIVITY.ID.eq(activityId.toInt()))
             .fetchOne(ACTIVITY.RAW_TCX)
+
+    fun findNameById(activityId: Long): String? =
+        dsl
+            .select(ACTIVITY.NAME)
+            .from(ACTIVITY)
+            .where(ACTIVITY.ID.eq(activityId.toInt()))
+            .fetchOne(ACTIVITY.NAME)
 }

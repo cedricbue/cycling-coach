@@ -1,0 +1,53 @@
+.spinner-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 64px;
+}
+
+.error,
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 64px;
+  color: #666;
+
+  mat-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+  }
+}
+
+.error {
+  flex-direction: row;
+  color: #b00020;
+  gap: 8px;
+  padding: 24px;
+}
+
+.table-container {
+  overflow-x: auto;
+  padding: 16px;
+}
+
+.rides-table {
+  width: 100%;
+  min-width: 700px;
+}
+
+.ride-row {
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.04);
+  }
+}
+
+.total-count {
+  color: #666;
+  font-size: 13px;
+  padding: 8px 0;
+  text-align: right;
+}

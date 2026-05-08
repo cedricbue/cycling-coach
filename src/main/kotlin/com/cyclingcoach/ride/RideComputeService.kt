@@ -2,6 +2,9 @@ package com.cyclingcoach.ride
 
 import com.cyclingcoach.activity.ActivityRepository
 import com.cyclingcoach.config.VIRTUAL_THREAD_EXECUTOR
+import com.cyclingcoach.ftp.FtpEstimationService
+import com.cyclingcoach.ftp.RidePowerSample
+import com.cyclingcoach.user.UserProfileRepository
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.scheduling.annotation.Async
@@ -15,6 +18,7 @@ class RideComputeService(
     private val activityRepository: ActivityRepository,
     private val rideRepository: RideRepository,
     private val userProfileRepository: UserProfileRepository,
+    private val ftpEstimationService: FtpEstimationService,
     private val parser: ActivityFileParser,
     private val eventPublisher: ApplicationEventPublisher,
 ) {
@@ -47,7 +51,8 @@ class RideComputeService(
         val densePower = RideCalculator.expandToDenseStream(rideData.powerWatts, rideData.timestamps)
 
         val np = RideCalculator.calculateNormalizedPower(densePower)
-        val ftp = userProfileRepository.findCurrentFtp()
+        val date = eventDate ?: deriveDate(rideData.timestamps)
+        val ftp = resolveRideFtp(date)
         val weightKg = userProfileRepository.findCurrentWeightKg()
 
         val avgPower = if (densePower.isNotEmpty()) densePower.average() else null
@@ -72,8 +77,6 @@ class RideComputeService(
         val vi = if (np != null && avgPower != null) RideCalculator.calculateVariabilityIndex(np, avgPower) else null
         val ef = if (np != null) RideCalculator.calculateEfficiencyFactor(np, avgHr) else null
         val wattsPerKg = if (np != null && weightKg != null) np / weightKg else null
-
-        val date = eventDate ?: deriveDate(rideData.timestamps)
 
         val input =
             RideInput(
@@ -119,6 +122,13 @@ class RideComputeService(
             tss?.let { "%.1f".format(it) },
         )
         eventPublisher.publishEvent(RideCalculatedEvent(rideId, activityId, date, tss ?: 0.0))
+    }
+
+    private fun resolveRideFtp(rideDate: LocalDate): Double? {
+        val profileFtp = userProfileRepository.findCurrentFtp()
+        if (profileFtp != null) return profileFtp
+        val samples = rideRepository.findPowerSamplesBefore(rideDate)
+        return ftpEstimationService.estimate(samples)
     }
 
     private fun deriveDate(timestamps: List<Instant>): LocalDate =

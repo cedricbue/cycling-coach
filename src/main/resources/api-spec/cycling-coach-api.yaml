@@ -9,8 +9,8 @@ servers:
     description: Local development
 
 tags:
-  - name: activities
-    description: Garmin-synced activities (list, detail)
+  - name: rides
+    description: Synced rides — list and detail
   - name: sync
     description: Garmin SSO authentication and activity sync
   - name: calendar
@@ -40,6 +40,58 @@ paths:
       responses:
         "202":
           description: Sync job enqueued
+
+  # ── Rides ────────────────────────────────────────────────────────────────────
+
+  /api/rides:
+    get:
+      tags: [ rides ]
+      operationId: listRides
+      summary: List all rides (paged, newest first)
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Paged list of ride summaries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RidePage"
+
+  /api/rides/{id}:
+    get:
+      tags: [ rides ]
+      operationId: getRide
+      summary: Get full ride detail including all stored metrics
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Ride with all stored metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RideDetail"
+        "404":
+          description: Ride not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   # ── Calendar ─────────────────────────────────────────────────────────────────
 
@@ -364,9 +416,9 @@ components:
         code:
           type: string
 
-    # Activity
+    # Rides
 
-    ActivitySummary:
+    RideSummary:
       type: object
       properties:
         id:
@@ -402,13 +454,13 @@ components:
           type: number
           format: double
 
-    ActivityPage:
+    RidePage:
       type: object
       properties:
         content:
           type: array
           items:
-            $ref: "#/components/schemas/ActivitySummary"
+            $ref: "#/components/schemas/RideSummary"
         totalElements:
           type: integer
           format: int64
@@ -495,7 +547,7 @@ components:
         notes:
           type: string
 
-    ActivityDetail:
+    RideDetail:
       type: object
       properties:
         id:
@@ -508,7 +560,7 @@ components:
         startTime:
           type: string
           format: date-time
-        ride:
+        metrics:
           $ref: "#/components/schemas/RideMetrics"
 
     # Calendar
@@ -527,7 +579,7 @@ components:
         totalDistanceKm:
           type: number
           format: double
-        activityIds:
+        rideIds:
           type: array
           items:
             type: integer

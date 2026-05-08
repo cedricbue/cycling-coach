@@ -2,8 +2,21 @@ package com.cyclingcoach.ride
 
 import com.cyclingcoach.generated.jooq.tables.Activity.Companion.ACTIVITY
 import com.cyclingcoach.generated.jooq.tables.Ride.Companion.RIDE
+import com.cyclingcoach.ftp.RidePowerSample
 import org.jooq.DSLContext
 import org.springframework.stereotype.Repository
+import java.time.LocalDate
+
+data class RideMetrics(
+    val durationSeconds: Double?,
+    val avgPower: Double?,
+    val variabilityIndex: Double?,
+    val bestPower1min: Double?,
+    val bestPower5min: Double?,
+    val bestPower10min: Double?,
+    val bestPower20min: Double?,
+    val bestPower60min: Double?,
+)
 
 @Repository
 class RideRepository(private val dsl: DSLContext) {
@@ -58,4 +71,56 @@ class RideRepository(private val dsl: DSLContext) {
             .fetch(ACTIVITY.ID)
             .filterNotNull()
             .map { it.toLong() }
+
+    fun findPowerSamplesBefore(beforeDate: LocalDate, lookbackDays: Int = 90): List<RidePowerSample> {
+        val windowStart = beforeDate.minusDays(lookbackDays.toLong())
+        return dsl
+            .select(
+                RIDE.DURATION,
+                RIDE.BEST_POWER_5MIN,
+                RIDE.BEST_POWER_10MIN,
+                RIDE.BEST_POWER_20MIN,
+                RIDE.BEST_POWER_60MIN,
+            )
+            .from(RIDE)
+            .where(RIDE.DATE.lt(beforeDate.toString()))
+            .and(RIDE.DATE.ge(windowStart.toString()))
+            .and(RIDE.DURATION.ge(1200f))
+            .fetch { record ->
+                RidePowerSample(
+                    durationSeconds = record[RIDE.DURATION]?.toDouble() ?: 0.0,
+                    bestPower5min = record[RIDE.BEST_POWER_5MIN]?.toDouble(),
+                    bestPower10min = record[RIDE.BEST_POWER_10MIN]?.toDouble(),
+                    bestPower20min = record[RIDE.BEST_POWER_20MIN]?.toDouble(),
+                    bestPower60min = record[RIDE.BEST_POWER_60MIN]?.toDouble(),
+                )
+            }
+    }
+
+    fun findMetricsById(rideId: Long): RideMetrics? =
+        dsl
+            .select(
+                RIDE.DURATION,
+                RIDE.AVG_POWER,
+                RIDE.VARIABILITY_INDEX,
+                RIDE.BEST_POWER_1MIN,
+                RIDE.BEST_POWER_5MIN,
+                RIDE.BEST_POWER_10MIN,
+                RIDE.BEST_POWER_20MIN,
+                RIDE.BEST_POWER_60MIN,
+            )
+            .from(RIDE)
+            .where(RIDE.ID.eq(rideId.toInt()))
+            .fetchOne { record ->
+                RideMetrics(
+                    durationSeconds = record[RIDE.DURATION]?.toDouble(),
+                    avgPower = record[RIDE.AVG_POWER]?.toDouble(),
+                    variabilityIndex = record[RIDE.VARIABILITY_INDEX]?.toDouble(),
+                    bestPower1min = record[RIDE.BEST_POWER_1MIN]?.toDouble(),
+                    bestPower5min = record[RIDE.BEST_POWER_5MIN]?.toDouble(),
+                    bestPower10min = record[RIDE.BEST_POWER_10MIN]?.toDouble(),
+                    bestPower20min = record[RIDE.BEST_POWER_20MIN]?.toDouble(),
+                    bestPower60min = record[RIDE.BEST_POWER_60MIN]?.toDouble(),
+                )
+            }
 }

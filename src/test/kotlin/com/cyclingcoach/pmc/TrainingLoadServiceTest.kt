@@ -48,8 +48,8 @@ class TrainingLoadServiceTest {
         assertThat(upsertArgs).hasSize(1)
         val (tss, ctl, atl) = upsertArgs[0]
         assertThat(tss).isCloseTo(100.0, Offset.offset(0.001))
-        assertThat(ctl).isCloseTo(100.0 * (2.0 / 43.0), Offset.offset(0.001))
-        assertThat(atl).isCloseTo(100.0 * (2.0 / 8.0), Offset.offset(0.001))
+        assertThat(ctl).isCloseTo(100.0 / 42.0, Offset.offset(0.001))
+        assertThat(atl).isCloseTo(100.0 / 7.0, Offset.offset(0.001))
     }
 
     @Test

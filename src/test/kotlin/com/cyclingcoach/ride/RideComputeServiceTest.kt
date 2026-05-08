@@ -1,6 +1,9 @@
 package com.cyclingcoach.ride
 
 import com.cyclingcoach.activity.ActivityRepository
+import com.cyclingcoach.ftp.FtpEstimationService
+import com.cyclingcoach.ftp.RidePowerSample
+import com.cyclingcoach.user.UserProfileRepository
 import io.mockk.every
 import io.mockk.justRun
 import io.mockk.mockk
@@ -18,11 +21,12 @@ class RideComputeServiceTest {
     private val activityRepository: ActivityRepository = mockk()
     private val rideRepository: RideRepository = mockk()
     private val userProfileRepository: UserProfileRepository = mockk()
+    private val ftpEstimationService: FtpEstimationService = mockk()
     private val eventPublisher: ApplicationEventPublisher = mockk()
     private val parser: ActivityFileParser = TcxActivityFileParser()
 
     private val task = RideComputeService(
-        activityRepository, rideRepository, userProfileRepository, parser, eventPublisher
+        activityRepository, rideRepository, userProfileRepository, ftpEstimationService, parser, eventPublisher
     )
 
     private val fixtureDate = LocalDate.parse("2026-05-07")
@@ -78,6 +82,8 @@ class RideComputeServiceTest {
         every { rideRepository.existsByActivityId(1L) } returns false
         every { activityRepository.findRawTcxById(1L) } returns tcx
         every { userProfileRepository.findCurrentFtp() } returns null
+        every { rideRepository.findPowerSamplesBefore(any()) } returns emptyList<RidePowerSample>()
+        every { ftpEstimationService.estimate(any()) } returns null
         every { userProfileRepository.findCurrentWeightKg() } returns null
         val savedInputSlot = slot<RideInput>()
         every { rideRepository.save(capture(savedInputSlot)) } returns 1L
@@ -91,12 +97,34 @@ class RideComputeServiceTest {
     }
 
     @Test
+    fun `compute uses estimated FTP when user profile FTP is not set`() {
+        val tcx = loadFixtureTcx()
+        every { rideRepository.existsByActivityId(1L) } returns false
+        every { activityRepository.findRawTcxById(1L) } returns tcx
+        every { userProfileRepository.findCurrentFtp() } returns null
+        every { rideRepository.findPowerSamplesBefore(any()) } returns emptyList<RidePowerSample>()
+        every { ftpEstimationService.estimate(any()) } returns 250.0
+        every { userProfileRepository.findCurrentWeightKg() } returns null
+        val savedInputSlot = slot<RideInput>()
+        every { rideRepository.save(capture(savedInputSlot)) } returns 1L
+        justRun { eventPublisher.publishEvent(any<Any>()) }
+
+        task.compute(1L, fixtureDate)
+
+        assertThat(savedInputSlot.captured.ftp).isEqualTo(250.0)
+        assertThat(savedInputSlot.captured.tss).isNotNull
+        assertThat(savedInputSlot.captured.intensityFactor).isNotNull
+    }
+
+    @Test
     fun `compute processes multiple activities independently`() {
         val tcx = loadFixtureTcx()
         every { rideRepository.existsByActivityId(10L) } returns false
         every { rideRepository.existsByActivityId(20L) } returns false
         every { activityRepository.findRawTcxById(any()) } returns tcx
         every { userProfileRepository.findCurrentFtp() } returns null
+        every { rideRepository.findPowerSamplesBefore(any()) } returns emptyList<RidePowerSample>()
+        every { ftpEstimationService.estimate(any()) } returns null
         every { userProfileRepository.findCurrentWeightKg() } returns null
         every { rideRepository.save(any()) } returns 99L
         justRun { eventPublisher.publishEvent(any<Any>()) }

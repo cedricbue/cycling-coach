@@ -27,8 +27,12 @@ class TrainingLoadService(private val repository: TrainingLoadRepository) {
         val dailyTss = repository.findDailyTssSince(startDate)
         val today = LocalDate.now()
 
-        val alphaCtl = 2.0 / (42 + 1)
-        val alphaAtl = 2.0 / (7 + 1)
+        if (dailyTss.isEmpty()) {
+            log.warn("No TSS data found since {} — training load will be zero. Is FTP configured?", startDate)
+        }
+
+        val alphaCtl = 1.0 / 42.0
+        val alphaAtl = 1.0 / 7.0
 
         var current = startDate
         while (!current.isAfter(today)) {
