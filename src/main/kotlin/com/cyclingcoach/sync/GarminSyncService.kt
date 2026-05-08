@@ -10,6 +10,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
+import java.time.LocalDate
 
 @Service
 class GarminSyncService(
@@ -35,8 +36,8 @@ class GarminSyncService(
             log.debug("No valid Garmin session — attempting re-authentication before sync")
             garminClient.login(garminProperties.email, garminProperties.password)
         }
-        val since =
-            syncCursorRepository.findSince() ?: java.time.LocalDate
+        val since: LocalDate =
+            syncCursorRepository.findSince() ?: LocalDate
                 .now()
                 .minusDays(garminProperties.sync.initialFetchDays.toLong())
 

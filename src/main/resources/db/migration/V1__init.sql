@@ -7,7 +7,8 @@ CREATE TABLE activity
     external_id TEXT UNIQUE NOT NULL, -- Garmin activity ID, used for dedup
     name        TEXT,
     start_time  TEXT        NOT NULL,
-    raw_tcx     TEXT        NOT NULL  -- source of truth; all metrics derived from here
+    raw_tcx     TEXT        NOT NULL, -- source of truth; used for grade/altitude data
+    raw_json    TEXT                  -- full Garmin Connect activity JSON; used for pre-calculated metrics
 );
 
 CREATE TABLE bike
@@ -77,7 +78,8 @@ CREATE TABLE ftp_test
     id        INTEGER PRIMARY KEY AUTOINCREMENT,
     date      TEXT NOT NULL,
     ftp_value REAL NOT NULL,
-    test_type TEXT CHECK (test_type IN ('AUTO_DETECTED', 'ESTIMATED')),
+    test_type TEXT CHECK (test_type IN ('RAMP_TEST', 'TWENTY_MIN_TEST', 'SIXTY_MIN_TEST', 'UNKNOWN', 'ESTIMATED')),
+    weight_kg REAL,
     notes     TEXT
 );
 
@@ -164,6 +166,16 @@ CREATE TABLE training_load
     ctl  REAL NOT NULL DEFAULT 0, -- 42-day EWMA (fitness)
     atl  REAL NOT NULL DEFAULT 0, -- 7-day EWMA (fatigue)
     tsb  REAL NOT NULL DEFAULT 0  -- CTL_prev - ATL_prev (form)
+);
+
+-- Tracks the since-date used by the last fully-completed Garmin sync.
+-- Absent row = first run; GarminSyncService falls back to now() - initialFetchDays.
+-- Only written after the sync loop exits without error, so an aborted sync never
+-- advances the cursor past un-fetched older activities.
+CREATE TABLE garmin_sync_cursor
+(
+    id    INTEGER PRIMARY KEY CHECK (id = 1),
+    since TEXT NOT NULL
 );
 
 -- Seed: ensure exactly one user_profile row always exists
