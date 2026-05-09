@@ -31,7 +31,7 @@ import java.time.LocalDate
  *  - User weight entries synced from Garmin
  */
 @Tag("integration")
-class GarminFullSyncIntegrationTest : AbstractApplicationIntegrationTest() {
+class GarminSyncPipelineIntegrationTest : AbstractApplicationIntegrationTest() {
 
     @Autowired
     private lateinit var garminSyncService: GarminSyncService
