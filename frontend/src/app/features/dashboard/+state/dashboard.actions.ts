@@ -1,5 +1,5 @@
 import { createActionGroup, emptyProps, props } from '@ngrx/store';
-import { PmcDataPoint, ActivitySummary, FtpEntry, AppSettings } from '../../../core/api/model/models';
+import { PmcDataPoint, RideSummary, FtpEntry, AppSettings } from '../../../core/api/model/models';
 
 export const DashboardActions = createActionGroup({
   source: 'Dashboard',
@@ -7,7 +7,7 @@ export const DashboardActions = createActionGroup({
     'Load Dashboard': emptyProps(),
     'Load Dashboard Success': props<{
       pmcData: PmcDataPoint[];
-      recentRides: ActivitySummary[];
+      recentRides: RideSummary[];
       ftpHistory: FtpEntry[];
       appSettings: AppSettings;
     }>(),

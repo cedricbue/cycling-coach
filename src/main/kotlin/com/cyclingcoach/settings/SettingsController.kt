@@ -1,27 +1,21 @@
 package com.cyclingcoach.settings
 
 import com.cyclingcoach.generated.api.SettingsApi
-import com.cyclingcoach.generated.jooq.tables.UserProfile.Companion.USER_PROFILE
 import com.cyclingcoach.generated.model.AppSettings
 import com.cyclingcoach.generated.model.HrZoneSettings
 import com.cyclingcoach.generated.model.PowerZoneSettings
-import org.jooq.DSLContext
+import com.cyclingcoach.user.UserProfileService
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
 class SettingsController(
     private val props: SettingsProperties,
-    private val dsl: DSLContext,
+    private val userProfileService: UserProfileService,
 ) : SettingsApi {
 
     override fun getSettings(): ResponseEntity<AppSettings> {
-        val weightKg = dsl
-            .select(USER_PROFILE.CURRENT_WEIGHT_KG)
-            .from(USER_PROFILE)
-            .where(USER_PROFILE.ID.eq(1))
-            .fetchOne(USER_PROFILE.CURRENT_WEIGHT_KG)
-            ?.toDouble()
+        val weightKg = userProfileService.findLatestWeightKg()
 
         val p = props.zones.power
         val h = props.zones.hr

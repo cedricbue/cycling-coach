@@ -1,6 +1,6 @@
 import { Component, input } from '@angular/core';
 import { DecimalPipe, DatePipe } from '@angular/common';
-import { ActivitySummary } from '../../../../core/api/model/models';
+import { RideSummary } from '../../../../core/api/model/models';
 
 @Component({
   selector: 'app-recent-rides',
@@ -9,7 +9,7 @@ import { ActivitySummary } from '../../../../core/api/model/models';
   styleUrl: './recent-rides.component.scss',
 })
 export class RecentRidesComponent {
-  readonly rides = input<ActivitySummary[]>([]);
+  readonly rides = input<RideSummary[]>([]);
 
   formatDuration(seconds?: number): string {
     if (!seconds) return '—';

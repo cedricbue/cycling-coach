@@ -4,7 +4,7 @@ import { forkJoin } from 'rxjs';
 import { catchError, map, of, switchMap } from 'rxjs';
 import { DashboardActions } from './dashboard.actions';
 import { PmcService } from '../../../core/api/api/pmc.service';
-import { ActivitiesService } from '../../../core/api/api/activities.service';
+import { RidesService } from '../../../core/api/api/rides.service';
 import { FtpService } from '../../../core/api/api/ftp.service';
 import { SettingsService } from '../../../core/api/api/settings.service';
 
@@ -12,7 +12,7 @@ import { SettingsService } from '../../../core/api/api/settings.service';
 export class DashboardEffects {
   private readonly actions$ = inject(Actions);
   private readonly pmcService = inject(PmcService);
-  private readonly activitiesService = inject(ActivitiesService);
+  private readonly ridesService = inject(RidesService);
   private readonly ftpService = inject(FtpService);
   private readonly settingsService = inject(SettingsService);
 
@@ -26,7 +26,7 @@ export class DashboardEffects {
 
         return forkJoin({
           pmcData: this.pmcService.getPmc(from),
-          recentRidesPage: this.activitiesService.getActivities(0, 10),
+          recentRidesPage: this.ridesService.listRides(0, 10),
           ftpHistory: this.ftpService.getFtpHistory(),
           appSettings: this.settingsService.getSettings(),
         }).pipe(

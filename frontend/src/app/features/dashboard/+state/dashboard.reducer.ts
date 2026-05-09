@@ -1,12 +1,12 @@
 import { createReducer, on } from '@ngrx/store';
-import { PmcDataPoint, ActivitySummary, FtpEntry, AppSettings } from '../../../core/api/model/models';
+import { PmcDataPoint, RideSummary, FtpEntry, AppSettings } from '../../../core/api/model/models';
 import { DashboardActions } from './dashboard.actions';
 
 export const DASHBOARD_FEATURE_KEY = 'dashboard';
 
 export interface DashboardState {
   pmcData: PmcDataPoint[];
-  recentRides: ActivitySummary[];
+  recentRides: RideSummary[];
   ftpHistory: FtpEntry[];
   appSettings: AppSettings | null;
   loading: boolean;
