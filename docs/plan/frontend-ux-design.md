@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Cycling Coach frontend is a **desktop-first** single-page application built with Angular 21 and Angular Material. It targets a single user (the athlete) who wants a professional, clean coaching interface — similar in style to Strava or TrainingPeaks but focused on power-based training data.
+The Cycling Coach frontend is a **desktop-first** single-page application built with Angular 21 and Angular Material. It targets a single user (the athlete) who wants a professional, clean coaching interface focused on power-based training data.
 
 ---
 
