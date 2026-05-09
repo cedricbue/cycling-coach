@@ -1,0 +1,44 @@
+<mat-sidenav-container class="sidenav-container">
+  <mat-sidenav mode="side" opened class="sidenav">
+    <div class="sidenav-header">
+      <mat-icon class="logo-icon">directions_bike</mat-icon>
+      <span class="logo-text">Cycling Coach</span>
+    </div>
+
+    <mat-nav-list class="nav-list">
+      <a
+        mat-list-item
+        routerLink="/"
+        routerLinkActive="active-link"
+        [routerLinkActiveOptions]="{ exact: true }"
+      >
+        <mat-icon matListItemIcon>dashboard</mat-icon>
+        <span matListItemTitle>Dashboard</span>
+      </a>
+      <a
+        mat-list-item
+        routerLink="/rides"
+        routerLinkActive="active-link"
+      >
+        <mat-icon matListItemIcon>directions_bike</mat-icon>
+        <span matListItemTitle>Rides</span>
+      </a>
+      <a
+        mat-list-item
+        routerLink="/settings"
+        routerLinkActive="active-link"
+      >
+        <mat-icon matListItemIcon>settings</mat-icon>
+        <span matListItemTitle>Settings</span>
+      </a>
+    </mat-nav-list>
+
+    <div class="sidenav-footer">
+      <app-sync-button />
+    </div>
+  </mat-sidenav>
+
+  <mat-sidenav-content class="main-content">
+    <router-outlet />
+  </mat-sidenav-content>
+</mat-sidenav-container>

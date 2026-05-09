@@ -1,0 +1,31 @@
+:host {
+  display: block;
+}
+
+.settings {
+  .page-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+
+    h1 {
+      margin: 0;
+    }
+  }
+
+  .cc-card {
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .tab-content {
+    padding: 24px;
+  }
+
+  .ftp-note {
+    color: var(--mat-sys-on-surface-variant);
+    margin: 0 0 16px;
+    font-size: 13px;
+  }
+}
