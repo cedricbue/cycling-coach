@@ -1,25 +1,19 @@
 package com.cyclingcoach.garmin.connect.client
 
-import com.cyclingcoach.AbstractApplicationIntegrationTest
+import com.cyclingcoach.garmin.connect.AbstractGarminConnectTest
 import com.github.tomakehurst.wiremock.client.WireMock
 import org.assertj.core.api.Assertions
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 
 @Tag("integration")
-class GarminClientIntegrationTest : AbstractApplicationIntegrationTest() {
+class GarminClientIntegrationTest : AbstractGarminConnectTest() {
     @Autowired
     private lateinit var garminClient: GarminConnect
 
     @Autowired
     private lateinit var garminConfig: GarminConfig
-
-    @BeforeEach
-    fun resetSession() {
-        garminTokenStore.deleteAll()
-    }
 
     @Test
     fun `login posts credentials and exchanges ticket for DI token`() {

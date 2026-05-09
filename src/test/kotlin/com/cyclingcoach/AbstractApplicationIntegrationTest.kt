@@ -1,14 +1,17 @@
 package com.cyclingcoach
 
 import com.cyclingcoach.garmin.activity.GarminActivityRepository
-import com.cyclingcoach.garmin.internal.GarminTokenStore
 import com.cyclingcoach.garmin.activity.GarminActivitySyncCursorRepository
+import com.cyclingcoach.garmin.connect.GarminConnectWireMockHelper
+import com.cyclingcoach.garmin.connect.weight.GarminWeightSyncCursorRepository
+import com.cyclingcoach.garmin.internal.GarminTokenStore
 import com.cyclingcoach.generated.jooq.tables.references.BIKE
 import com.cyclingcoach.generated.jooq.tables.references.FTP_TEST
 import com.cyclingcoach.generated.jooq.tables.references.GARMIN_ACTIVITY
 import com.cyclingcoach.generated.jooq.tables.references.GARMIN_ACTIVITY_SYNC_CURSOR
 import com.cyclingcoach.generated.jooq.tables.references.GARMIN_TOKEN
 import com.cyclingcoach.generated.jooq.tables.references.GARMIN_WEIGHT
+import com.cyclingcoach.generated.jooq.tables.references.GARMIN_WEIGHT_SYNC_CURSOR
 import com.cyclingcoach.generated.jooq.tables.references.GOAL_EVENT
 import com.cyclingcoach.generated.jooq.tables.references.NUTRITION_PLAN
 import com.cyclingcoach.generated.jooq.tables.references.PLANNED_WORKOUT
@@ -18,9 +21,6 @@ import com.cyclingcoach.generated.jooq.tables.references.TRAINING_PLAN
 import com.cyclingcoach.generated.jooq.tables.references.TRAINING_WEEK
 import com.cyclingcoach.generated.jooq.tables.references.USER_WEIGHT
 import com.github.tomakehurst.wiremock.WireMockServer
-import com.github.tomakehurst.wiremock.client.WireMock.aResponse
-import com.github.tomakehurst.wiremock.client.WireMock.post
-import com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig
 import org.jooq.DSLContext
 import org.junit.jupiter.api.BeforeEach
@@ -45,6 +45,9 @@ abstract class AbstractApplicationIntegrationTest {
     @Autowired
     lateinit var syncCursorRepository: GarminActivitySyncCursorRepository
 
+    @Autowired
+    lateinit var weightSyncCursorRepository: GarminWeightSyncCursorRepository
+
     @BeforeEach
     fun resetState() {
         dsl.deleteFrom(NUTRITION_PLAN).execute()
@@ -61,6 +64,7 @@ abstract class AbstractApplicationIntegrationTest {
         dsl.deleteFrom(BIKE).execute()
         dsl.deleteFrom(GARMIN_TOKEN).execute()
         dsl.deleteFrom(GARMIN_ACTIVITY_SYNC_CURSOR).execute()
+        dsl.deleteFrom(GARMIN_WEIGHT_SYNC_CURSOR).execute()
         wireMock.resetAll()
         stubGarminAuthFlow()
     }
@@ -82,28 +86,7 @@ abstract class AbstractApplicationIntegrationTest {
         }
 
         fun stubGarminAuthFlow() {
-            wireMock.stubFor(
-                post(urlPathMatching("/mobile/api/login"))
-                    .willReturn(
-                        aResponse()
-                            .withStatus(200)
-                            .withHeader("Content-Type", "application/json")
-                            .withBody(
-                                """{"responseStatus":{"type":"SUCCESSFUL"},"serviceTicketId":"ST-TEST-TICKET"}""",
-                            ),
-                    ),
-            )
-            wireMock.stubFor(
-                post(urlPathMatching("/di-oauth2-service/oauth/token"))
-                    .willReturn(
-                        aResponse()
-                            .withStatus(200)
-                            .withHeader("Content-Type", "application/json")
-                            .withBody(
-                                """{"access_token":"test-access-token","refresh_token":"test-refresh-token","expires_in":3600,"refresh_token_expires_in":7776000}""",
-                            ),
-                    ),
-            )
+            GarminConnectWireMockHelper.stubAuthFlow(wireMock)
         }
     }
 }

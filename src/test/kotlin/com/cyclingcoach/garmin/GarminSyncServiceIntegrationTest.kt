@@ -1,4 +1,4 @@
-package com.cyclingcoach.garmin.sync
+package com.cyclingcoach.garmin
 
 import com.cyclingcoach.AbstractApplicationIntegrationTest
 import com.cyclingcoach.garmin.GarminSyncService
@@ -45,7 +45,7 @@ class GarminSyncServiceIntegrationTest : AbstractApplicationIntegrationTest() {
             """<?xml version="1.0"?><TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2"/>""",
         )
 
-        garminActivitySyncService.sync()
+        garminActivitySyncService.sync().get()
 
         assertThat(garminActivityRepository.existsByExternalId("12345678")).isTrue()
     }
@@ -57,8 +57,8 @@ class GarminSyncServiceIntegrationTest : AbstractApplicationIntegrationTest() {
         )
         stubTcxDownload(99999L, minimalTcx())
 
-        garminActivitySyncService.sync()
-        garminActivitySyncService.sync()
+        garminActivitySyncService.sync().get()
+        garminActivitySyncService.sync().get()
 
         wireMock.verify(
             1,
@@ -70,7 +70,7 @@ class GarminSyncServiceIntegrationTest : AbstractApplicationIntegrationTest() {
     fun `sync handles empty activity list gracefully`() {
         stubActivityList("[]")
 
-        garminActivitySyncService.sync()
+        garminActivitySyncService.sync().get()
 
         assertThat(garminActivityRepository.existsByExternalId("0")).isFalse()
     }
@@ -84,7 +84,7 @@ class GarminSyncServiceIntegrationTest : AbstractApplicationIntegrationTest() {
         )
         stubTcxDownload(55555L, minimalTcx())
 
-        garminActivitySyncService.sync()
+        garminActivitySyncService.sync().get()
 
         assertThat(garminActivityRepository.existsByExternalId("55555")).isTrue()
     }
@@ -113,7 +113,7 @@ class GarminSyncServiceIntegrationTest : AbstractApplicationIntegrationTest() {
         )
         stubTcxDownload(77777L, minimalTcx())
 
-        garminActivitySyncService.sync()
+        garminActivitySyncService.sync().get()
 
         assertThat(garminActivityRepository.existsByExternalId("77777")).isTrue()
     }
@@ -140,7 +140,7 @@ class GarminSyncServiceIntegrationTest : AbstractApplicationIntegrationTest() {
         )
         (1..101).forEach { i -> stubTcxDownload(i.toLong(), minimalTcx()) }
 
-        garminActivitySyncService.sync()
+        garminActivitySyncService.sync().get()
 
         assertThat(garminActivityRepository.existsByExternalId("1")).isTrue()
         assertThat(garminActivityRepository.existsByExternalId("100")).isTrue()
@@ -153,7 +153,7 @@ class GarminSyncServiceIntegrationTest : AbstractApplicationIntegrationTest() {
             """[{"activityId":200,"activityName":"Base Ride","startTimeGMT":"2024-06-01 08:00:00","activityType":{"typeKey":"cycling"}}]""",
         )
         stubTcxDownload(200L, minimalTcx())
-        garminActivitySyncService.sync()
+        garminActivitySyncService.sync().get()
 
         assertThat(syncCursorRepository.findSince()?.toString()).isEqualTo("2024-06-01")
 
@@ -162,7 +162,7 @@ class GarminSyncServiceIntegrationTest : AbstractApplicationIntegrationTest() {
                 .withQueryParam("startDate", equalTo("2024-06-01"))
                 .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "application/json").withBody("[]")),
         )
-        garminActivitySyncService.sync()
+        garminActivitySyncService.sync().get()
 
         wireMock.verify(
             getRequestedFor(urlPathMatching("/activitylist-service/activities/search/activities"))
@@ -194,7 +194,7 @@ class GarminSyncServiceIntegrationTest : AbstractApplicationIntegrationTest() {
         )
         (301..400).forEach { stubTcxDownload(it.toLong(), minimalTcx()) }
 
-        assertThrows<Exception> { garminActivitySyncService.sync() }
+        assertThrows<Exception> { garminActivitySyncService.sync().get() }
 
         assertThat(syncCursorRepository.findSince()).isNull()
 
@@ -212,7 +212,7 @@ class GarminSyncServiceIntegrationTest : AbstractApplicationIntegrationTest() {
         )
         stubTcxDownload(401L, minimalTcx())
 
-        garminActivitySyncService.sync()
+        garminActivitySyncService.sync().get()
 
         assertThat(garminActivityRepository.existsByExternalId("301")).isTrue()
         assertThat(garminActivityRepository.existsByExternalId("401")).isTrue()
@@ -224,7 +224,7 @@ class GarminSyncServiceIntegrationTest : AbstractApplicationIntegrationTest() {
         garminTokenStore.deleteAll()
         stubActivityList("[]")
 
-        garminActivitySyncService.sync()
+        garminActivitySyncService.sync().get()
     }
 
     private fun stubActivityList(jsonBody: String) {

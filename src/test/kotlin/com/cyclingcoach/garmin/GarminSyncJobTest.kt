@@ -1,4 +1,4 @@
-package com.cyclingcoach.garmin.sync
+package com.cyclingcoach.garmin
 
 import com.cyclingcoach.garmin.GarminSyncJob
 import com.cyclingcoach.garmin.GarminSyncService

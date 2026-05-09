@@ -10,63 +10,74 @@ Personal road cycling training analysis tool. Analyzes rides from Garmin Connect
 
 ```bash
 # Full build (generates code, builds Angular, packages JAR)
-mvn package
+./mvnw package
 
 # Generate all code (OpenAPI interfaces + jOOQ classes) without building
-mvn generate-sources
+./mvnw generate-sources
 
 # Run backend in dev mode (port 8080)
-mvn spring-boot:run
+./mvnw spring-boot:run
 
 # Run frontend dev server (port 4200, proxies API to :8080)
 cd frontend && ng serve
 
 # Run all tests
-mvn verify
+./mvnw verify
 
 # Run a single backend test class
-mvn test -Dtest=RideServiceTest
+./mvnw test -Dtest=RideServiceTest
 
 # Run backend unit tests only (skip integration tests)
-mvn test -Dgroups="unit"
+./mvnw test -Dgroups="unit"
 
 # Regenerate jOOQ classes from SQLite schema (requires DB to exist at ./data/cycling-coach.db)
-mvn jooq-codegen:generate
+./mvnw jooq-codegen:generate
 
 # Docker Compose (production-like, single container)
-docker compose up
+docker compose up --build
 ```
 
 ## Architecture
 
 ### API-First Workflow
 
-The API spec at `api-spec/cycling-coach-api.yaml` is the source of truth. `mvn generate-sources` runs openapi-generator twice:
-1. **Backend**: Generates Kotlin Spring controller interfaces + DTOs into `src/main/java/com/cyclingcoach/generated/api/` and `generated/model/`
+The API spec at `api-spec/cycling-coach-api.yaml` is the source of truth. `./mvnw generate-sources` runs openapi-generator twice:
+1. **Backend**: Generates Kotlin Spring controller interfaces + DTOs under `target/generated-sources/openapi/src/main/kotlin/` (packages `com.cyclingcoach.generated.api` and `.generated.model`). jOOQ classes go to `target/generated-sources/jooq/` (`com.cyclingcoach.generated.jooq`). Both directories are added to the Kotlin source set.
 2. **Frontend**: Generates Angular services + TypeScript models into `frontend/src/app/core/api/`
 
-**Never hand-edit anything in `generated/`** — all changes must go through the YAML spec first.
+**Never hand-edit anything under `target/generated-sources/` or `frontend/src/app/core/api/`** — all changes must go through the YAML spec first.
 
-### Backend Package Layout (`com.cyclingcoach`)
+### Backend Package Layout (`com.cyclingcoach`, `src/main/kotlin/`)
 
-Packages are domain-scoped. Each domain owns its controller, service, repository, and MapStruct mapper. Controllers implement the generated interfaces from `generated/api/`; they never expose jOOQ records directly — MapStruct mappers convert them to generated DTOs.
+Packages are domain-scoped. Each domain owns its controller, service, repository, and MapStruct mapper. Controllers implement the generated interfaces from `com.cyclingcoach.generated.api`; they never expose jOOQ records directly — MapStruct mappers convert them to generated DTOs.
+
+Currently implemented packages:
 
 ```
-config/           — Spring, jOOQ, Flyway, Spring AI, async, Garmin client wiring only
-activity/         — Raw Garmin activity records (TCX stored as-is)
-ride/             — Computed cycling metrics from TCX (NP, IF, TSS, best powers); event-driven pipeline
-pmc/              — Training load chain: CTL/ATL/TSB per calendar day
-tcx/              — Framework-agnostic StAX TCX parser (no Spring); reusable standalone
-ftp/              — FTP history (auto-detected from 20min best power × 0.95, or estimated)
-calendar/         — Calendar aggregation queries
-training/         — Goal event, AI training plan, ZWO export
-coaching/         — Spring AI integration, on-demand ride analysis
-nutrition/        — AI-generated nutrition plans (per ride or planned workout)
-garmin/connect/   — Framework-agnostic Garmin Connect client (GarminConnect, no Spring)
-sync/             — Spring wiring for Garmin sync: @Scheduled job, TokenStore, cursor tracking
-settings/         — Read-only projection of Spring properties (@ConfigurationProperties)
-generated/        — DO NOT EDIT: openapi-generator output + jOOQ codegen output
+config/             — Spring, jOOQ, Flyway, Spring AI, async, Garmin client wiring only
+ride/               — Raw activity ingestion + computed cycling metrics (NP, IF, TSS, best powers).
+                      Split into RideReadService / RideComputeService / RideService;
+                      RideEventListener drives compute on activity store; emits RideCalculatedEvent.
+                      Includes ActivityFileParser / TcxActivityFileParser (raw TCX → RideInput).
+pmc/                — Training load chain: CTL/ATL/TSB per calendar day, recalculated forward
+                      from earliest affected date on RideCalculatedEvent.
+tcx/                — Framework-agnostic TCX parser (JDK DOM/XPath, no Spring); reusable standalone.
+ftp/                — FTP history (auto-detected from 20min best power × 0.95, or estimated).
+garmin/             — Garmin sync wiring: GarminController, GarminSyncJob (@Scheduled),
+                      GarminSyncService, GarminSyncable interface.
+garmin/connect/     — Framework-agnostic Garmin Connect client (activity, client, weight subpkgs).
+garmin/internal/    — GarminTokenStore (DI OAuth2 tokens, no credentials).
+user/               — UserProfile (single-row, id=1) + Weight history.
+settings/           — Read-only projection of Spring properties (@ConfigurationProperties).
 ```
+
+Planned but not yet implemented (do not assume the package exists): `calendar/`, `training/`, `coaching/`, `nutrition/`. AI integration and ZWO export are aspirational at this stage.
+
+Generated output (DO NOT EDIT): `target/generated-sources/openapi/` and `target/generated-sources/jooq/`.
+
+### Central Event Flow
+
+`Garmin sync (GarminSyncJob/Service)` → activity persisted → `RideEventListener` → `RideComputeService` (parses TCX via `tcx/`, computes metrics via `RideCalculator`) → emits `RideCalculatedEvent` → `pmc/` recalculates the CTL/ATL/TSB chain forward from the earliest affected date. Reads go through `RideReadService` and `pmc/` queries.
 
 ### Key Domain Rules
 
@@ -81,7 +92,7 @@ generated/        — DO NOT EDIT: openapi-generator output + jOOQ codegen outpu
 
 ### Database
 
-SQLite, managed by Flyway migrations in `src/main/resources/db/migration/`. jOOQ generates type-safe Kotlin classes from the live schema — run `mvn jooq-codegen:generate` after schema changes. No ORM; all queries go through jOOQ DSL.
+SQLite, managed by Flyway migrations in `src/main/resources/db/migration/`. jOOQ generates type-safe Kotlin classes from the live schema — run `./mvnw jooq-codegen:generate` after schema changes. No ORM; all queries go through jOOQ DSL.
 
 ### Frontend
 
@@ -89,7 +100,7 @@ Angular 21 with NgRx. NgRx state lives in `+state/` inside each feature director
 
 ### AI Integration
 
-Spring AI with Ollama and Anthropic as **switchable providers** (not a fallback chain). Controlled via `AI_PROVIDER=ollama|anthropic` and `AI_MODEL=...` environment variables. The `coaching/` package owns all AI calls.
+Spring AI with Ollama and Anthropic as **switchable providers** (not a fallback chain). Controlled via `AI_PROVIDER=ollama|anthropic` and `AI_MODEL=...` environment variables. A `coaching/` package is planned to own all AI calls but does not yet exist in the codebase.
 
 ### Testing
 
@@ -100,6 +111,10 @@ Spring AI with Ollama and Anthropic as **switchable providers** (not a fallback 
 ### Feature Branch Convention
 
 `feature/<short-kebab-description>` — e.g., `feature/power-zone-dashboard`
+
+## Cycling Domain Changes
+
+Any change to cycling business logic — NP/IF/TSS formulas, CTL/ATL/TSB EWMA constants, FTP detection, power zone thresholds, training load recalculation rules, or any other metric derivation — **must be reviewed by the road-cycling-coach agent before implementation**. Invoke it via the `road-cycling-coach` subagent type and describe the proposed change. Do not commit cycling metric logic changes without this review.
 
 ## Domain Reference
 
