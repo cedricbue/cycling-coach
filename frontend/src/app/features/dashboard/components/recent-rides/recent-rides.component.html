@@ -1,0 +1,41 @@
+<div class="cc-card">
+  <h2 class="section-title">Recent Rides</h2>
+
+  @if (rides().length === 0) {
+    <p class="empty-state">No rides yet. Sync your Garmin to get started.</p>
+  }
+
+  <div class="rides-list">
+    @for (ride of rides(); track ride.id) {
+      <div class="ride-row">
+        <div class="ride-main">
+          <div class="ride-name">{{ ride.name || 'Unnamed ride' }}</div>
+          <div class="ride-meta">
+            {{ ride.date | date: 'MMM d, y' }} &bull;
+            {{ formatDuration(ride.durationSeconds) }} &bull;
+            {{ (ride.distanceKm ?? 0) | number: '1.1-1' }} km
+          </div>
+        </div>
+        <div class="ride-stats">
+          @if (ride.normalizedPowerW) {
+            <div class="stat">
+              <span class="stat-label">NP</span>
+              <span class="stat-value">{{ ride.normalizedPowerW }}W</span>
+            </div>
+          }
+          @if (ride.tss) {
+            <div class="stat">
+              <span class="stat-label">TSS</span>
+              <span class="stat-value">{{ ride.tss | number: '1.0-0' }}</span>
+            </div>
+          }
+          @if (ride.intensityFactor) {
+            <span class="if-badge" [class]="tsbClass(ride.intensityFactor)">
+              IF {{ ride.intensityFactor | number: '1.2-2' }}
+            </span>
+          }
+        </div>
+      </div>
+    }
+  </div>
+</div>

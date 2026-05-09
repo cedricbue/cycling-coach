@@ -1,0 +1,46 @@
+<div class="cc-page dashboard">
+  @if (loading()) {
+    <div class="loading-overlay">
+      <mat-spinner diameter="48" />
+    </div>
+  }
+
+  <!-- Metric cards row -->
+  <div class="metrics-row">
+    <app-metric-card
+      label="CTL — Fitness"
+      [value]="latestPmc()?.ctl | number:'1.0-0'"
+      subtitle="Chronic Training Load (42d)"
+      accent="blue"
+    />
+    <app-metric-card
+      label="ATL — Fatigue"
+      [value]="latestPmc()?.atl | number:'1.0-0'"
+      subtitle="Acute Training Load (7d)"
+      accent="orange"
+    />
+    <app-metric-card
+      label="TSB — Form"
+      [value]="latestPmc()?.tsb | number:'1.0-0'"
+      [subtitle]="tsbSubtitle"
+      [accent]="tsbAccent"
+    />
+    <app-metric-card
+      label="FTP"
+      [value]="currentFtp()"
+      unit="W"
+      subtitle="Functional Threshold Power"
+      accent="neutral"
+    />
+  </div>
+
+  <!-- PMC Chart -->
+  <div class="chart-section">
+    <app-pmc-chart [data]="pmcData()" />
+  </div>
+
+  <!-- Recent Rides -->
+  <div class="rides-section">
+    <app-recent-rides [rides]="recentRides()" />
+  </div>
+</div>

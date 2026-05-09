@@ -5,6 +5,10 @@ import { SYNC_FEATURE_KEY, syncReducer } from './features/activities/+state/sync
 import { SyncEffects } from './features/activities/+state/sync.effects';
 import { RIDES_FEATURE_KEY, ridesReducer } from './features/rides/+state/rides.reducer';
 import { RidesEffects } from './features/rides/+state/rides.effects';
+import { DASHBOARD_FEATURE_KEY, dashboardReducer } from './features/dashboard/+state/dashboard.reducer';
+import { DashboardEffects } from './features/dashboard/+state/dashboard.effects';
+import { SETTINGS_FEATURE_KEY, settingsReducer } from './features/settings/+state/settings.reducer';
+import { SettingsEffects } from './features/settings/+state/settings.effects';
 
 export const routes: Routes = [
   {
@@ -16,12 +20,19 @@ export const routes: Routes = [
       provideEffects(RidesEffects),
     ],
     loadComponent: () =>
-      import('./features/home/home.component').then((m) => m.HomeComponent),
+      import('./features/shell/shell.component').then((m) => m.ShellComponent),
     children: [
       {
         path: '',
-        redirectTo: 'rides',
         pathMatch: 'full',
+        providers: [
+          provideState(DASHBOARD_FEATURE_KEY, dashboardReducer),
+          provideEffects(DashboardEffects),
+        ],
+        loadComponent: () =>
+          import('./features/dashboard/dashboard.component').then(
+            (m) => m.DashboardComponent
+          ),
       },
       {
         path: 'rides',
@@ -35,6 +46,17 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/rides/ride-detail/ride-detail.component').then(
             (m) => m.RideDetailComponent
+          ),
+      },
+      {
+        path: 'settings',
+        providers: [
+          provideState(SETTINGS_FEATURE_KEY, settingsReducer),
+          provideEffects(SettingsEffects),
+        ],
+        loadComponent: () =>
+          import('./features/settings/settings.component').then(
+            (m) => m.SettingsComponent
           ),
       },
     ],

@@ -1,0 +1,29 @@
+<div class="cc-page settings">
+  <div class="page-header">
+    <h1 class="mat-headline-medium">Settings</h1>
+    @if (loading()) {
+      <mat-spinner diameter="24" />
+    }
+  </div>
+
+  <div class="cc-card">
+    <mat-tab-group animationDuration="200ms">
+      <mat-tab label="Power Zones">
+        <div class="tab-content">
+          @if (currentFtp()) {
+            <p class="ftp-note mat-body-small">
+              Watt ranges calculated from current FTP: <strong>{{ currentFtp() }} W</strong>
+            </p>
+          }
+          <app-power-zones-table [zones]="powerZones()" [ftp]="currentFtp()" />
+        </div>
+      </mat-tab>
+
+      <mat-tab label="FTP History">
+        <div class="tab-content">
+          <app-ftp-history [history]="ftpHistory()" />
+        </div>
+      </mat-tab>
+    </mat-tab-group>
+  </div>
+</div>
