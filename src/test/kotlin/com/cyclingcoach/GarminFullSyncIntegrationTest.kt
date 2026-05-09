@@ -1,6 +1,7 @@
-package com.cyclingcoach.garmin
+package com.cyclingcoach
 
 import com.cyclingcoach.AbstractApplicationIntegrationTest
+import com.cyclingcoach.garmin.GarminSyncService
 import com.cyclingcoach.generated.jooq.tables.references.RIDE
 import com.cyclingcoach.generated.jooq.tables.references.USER_PROFILE
 import com.cyclingcoach.generated.jooq.tables.references.USER_WEIGHT
