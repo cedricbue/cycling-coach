@@ -19,10 +19,10 @@ spring:
   main:
     banner-mode: off
 
-sync:
-  garmin:
-    email: ${GARMIN_EMAIL:}
-    password: ${GARMIN_PASSWORD:}
+garmin:
+  email: ${GARMIN_EMAIL:}
+  password: ${GARMIN_PASSWORD:}
+
 
 logging:
   level:

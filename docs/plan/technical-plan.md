@@ -14,9 +14,9 @@ Personal road cycling training analysis tool. Analyze rides from Garmin Connect 
 | Migrations | Flyway 11.x (11.14.1)               | Versioned schema migrations; SQLite supported in core                                                |
 | Database | SQLite (org.xerial:sqlite-jdbc)      | File-based, backup-friendly, no server                                                               |
 | AI Integration | Spring AI 2.0.x (add when GA)       | Ollama and Anthropic as switchable options (not fallback); deferred until 2.0 GA                     |
-| Garmin API | OkHttp 4.x via `client/garmin/` package | Framework-agnostic `GarminClient`; handles SSO → DI OAuth2 token exchange, auto-refresh, auto-reauth |
+| Garmin API | OkHttp 4.x via `garmin/connect/` package | Framework-agnostic `GarminConnect`; handles SSO → DI OAuth2 token exchange, auto-refresh, auto-reauth |
 | Job Scheduling | Spring `@Scheduled`                  | Built-in; 6h default interval, configurable via `sync.interval-ms`                                  |
-| TCX Parsing | Jackson XML (tools.jackson)          | Jackson 3 coordinates; parse TCX from DB storage                                                     |
+| TCX Parsing | JDK StAX (`javax.xml.stream`)        | Single-pass streaming parser; no DOM allocation; zero extra dependencies                             |
 | API Spec | OpenAPI 3.1 YAML                     | Spec-first; lives in `api-spec/cycling-coach-api.yaml`                                               |
 | API Generator | openapi-generator-maven-plugin 7.x   | Generates Spring controller interfaces + DTOs from spec; implementations provided by domain services |
 | DTO Mapping | MapStruct                            | Compile-time mapping from jOOQ models to generated DTOs                                              |
@@ -50,21 +50,29 @@ Structured by domain. Controllers implement generated interfaces from `generated
 ```
 com.cyclingcoach
 ├── config/              # Infrastructure only: Spring, jOOQ, Flyway, Spring AI, async, Garmin client wiring
-│   ├── GarminClientConfig.kt      # @Bean for GarminConfig + GarminClient (reads garmin.connect.* properties)
+│   ├── GarminClientConfig.kt      # @Bean for GarminConfig + GarminConnect; GarminConnectProperties (garmin.connect.*)
 │   └── AsyncConfig.kt             # virtual thread executor bean for @Async (VIRTUAL_THREAD_EXECUTOR)
 ├── activity/            # Garmin-synced activities: list, detail
 │   ├── ActivityController.kt  # implements generated ActivitiesApi
 │   ├── ActivityService.kt
 │   ├── ActivityRepository.kt
 │   └── ActivityMapper.kt      # jOOQ record → generated DTO
-├── ride/                # Ride calculations: NP, IF, TSS; zone breakdowns
-│   ├── RideService.kt
+├── ride/                # Ride calculations: NP, IF, TSS, best powers; event-driven from ActivityStoredEvent
+│   ├── RideService.kt             # @EventListener(ActivityStoredEvent) → delegates to RideComputeService; reconciles orphans on startup
+│   ├── RideComputeService.kt      # parses TCX via ActivityFileParser, computes all metrics, persists Ride, publishes RideCalculatedEvent
+│   ├── RideCalculator.kt          # pure functions: expandToDenseStream, NP, bestPower, TSS/IF/VI/EF, elevation
+│   ├── RideCalculatedEvent.kt     # event published after a Ride row is written (carries rideId, activityId, date, tss)
+│   ├── ActivityFileParser.kt      # interface: supports(String) + parse(String): TcxData
+│   ├── TcxActivityFileParser.kt   # @Component adapter: wraps tcx.TcxParser, implements ActivityFileParser
 │   ├── RideRepository.kt
-│   └── RideMapper.kt
+│   ├── RideInput.kt
+│   └── UserProfileRepository.kt   # reads current FTP + weight for metric calculation
 ├── pmc/                 # Training load chain: CTL, ATL, TSB
-│   ├── PmcController.kt       # implements generated PmcApi
-│   ├── PmcService.kt
-│   └── TrainingLoadRepository.kt
+│   ├── TrainingLoadService.kt     # @EventListener(RideCalculatedEvent) → recalculateFrom(date); EWMA chain walk
+│   └── TrainingLoadRepository.kt  # jOOQ: findByDate, findDailyTssSince, upsert training_load rows
+├── tcx/                 # Framework-agnostic TCX parser — no Spring dependency, reusable standalone
+│   ├── TcxParser.kt               # StAX streaming parser: single pass, returns TcxData
+│   └── TcxData.kt                 # parsed TCX streams: timestamps, power, HR, cadence, speed, altitude, distance
 ├── ftp/                 # FTP history (auto-detected / estimated)
 │   ├── FtpController.kt       # implements generated FtpApi
 │   ├── FtpService.kt
@@ -84,8 +92,8 @@ com.cyclingcoach
 │   ├── NutritionController.kt # implements generated NutritionApi
 │   ├── NutritionService.kt    # calls AI with ride/workout context, persists result
 │   └── NutritionRepository.kt
-├── client/garmin/       # Framework-agnostic Garmin Connect client (no Spring dependency)
-│   ├── GarminClient.kt            # public API: login, refreshToken, getActivities, downloadTcx
+├── garmin/connect/      # Framework-agnostic Garmin Connect client (no Spring dependency)
+│   ├── GarminConnect.kt           # public API: login, refreshToken, getActivities, downloadTcx
 │   ├── GarminConfig.kt            # SSO + DI auth + API base URLs (data class)
 │   ├── GarminTokens.kt            # access/refresh token model with isExpired() helpers
 │   ├── TokenStore.kt              # pluggable persistence interface (save/load/delete)
@@ -99,6 +107,7 @@ com.cyclingcoach
 │   ├── GarminSyncService.kt       # orchestrates sync: fetches activity list, downloads TCX, persists via ActivityService
 │   ├── AsyncGarminSyncService.kt  # @Async wrapper using virtual thread executor (for non-blocking trigger endpoint)
 │   ├── GarminTokenStore.kt        # implements TokenStore; persists DI OAuth2 tokens to garmin_token table via jOOQ
+│   ├── GarminSyncCursorRepository.kt  # tracks last-synced activity cursor to support incremental fetches
 │   ├── GarminProperties.kt        # @ConfigurationProperties(prefix="sync.garmin"): email, password, initialFetchDays
 │   └── SyncController.kt          # implements generated SyncApi
 ├── settings/            # Zone thresholds (read-only API, configured via Spring properties)
@@ -113,44 +122,40 @@ com.cyclingcoach
 
 ### Event-Driven Post-Sync Processing
 
-After `GarminSyncService` stores a new activity it publishes an `ActivityStoredEvent` via Spring's `ApplicationEventPublisher`. Listeners run in the same thread (synchronous, ordered) so no extra infrastructure is needed.
+After `GarminSyncService` stores a new activity it publishes an `ActivityStoredEvent`. `RideService` listens, computes metrics via `RideComputeService`, and publishes a `RideCalculatedEvent`. `TrainingLoadService` listens to that second event. All listeners run `@Async` on virtual threads — no blocking.
 
 ```
-GarminSyncService
+GarminSyncService (activity/)
   └─ publishes ActivityStoredEvent(activityId, date)
        │
-       ├─ RideService          @EventListener — parses TCX, computes NP/IF/TSS/best-powers, writes Ride row
-       │                        also auto-detects FTP (bestPower20min × 0.95) and records FtpTest if improved
-       │
-       └─ TrainingLoadService  @EventListener(condition) — runs after RideService writes TSS;
-                                recalculates CTL/ATL/TSB chain forward from event.date
+       └─ RideService (ride/)       @Async @EventListener — delegates to RideComputeService
+               │
+               └─ RideComputeService  parses TCX via TcxActivityFileParser → TcxParser (StAX)
+                                       computes NP/IF/TSS/best-powers via RideCalculator
+                                       writes Ride row
+                                       └─ publishes RideCalculatedEvent(rideId, activityId, date, tss)
+                                                │
+                                                └─ TrainingLoadService (pmc/)  @Async @EventListener
+                                                                                recalculateFrom(date):
+                                                                                EWMA chain walk forward
+                                                                                from date, upserts
+                                                                                training_load rows
 ```
 
-**Why synchronous events instead of direct calls:**
-- `GarminSyncService` stays decoupled from `RideService` and `TrainingLoadService`
-- Ordering is explicit (ride must be computed before training load needs its TSS)
-- No message broker needed for a single-node app
-- Easy to test each listener in isolation with a synthetic event
+**Two-event design rationale:**
+- `ActivityStoredEvent` (owned by `activity/`) keeps sync decoupled from ride computation
+- `RideCalculatedEvent` (owned by `ride/`) keeps ride computation decoupled from PMC — `TrainingLoadService` only fires after a TSS value exists
+- No ordering annotations needed: the two events are causally sequential by construction
+- Each listener is independently testable with a synthetic event
 
-**Ordering guarantee:** Spring `@EventListener` methods on the same event run in declaration order within the same `ApplicationContext`. To make the order explicit, annotate `TrainingLoadService`'s listener with `@Order(2)` and `RideService`'s with `@Order(1)`.
-
-**Event class** (in `sync/` package, owned by the publisher):
-```kotlin
-data class ActivityStoredEvent(val activityId: Long, val date: LocalDate)
-```
-
-**Startup consistency check** — `RideService` also listens to `ApplicationReadyEvent` and queries for any `Activity` row that has no corresponding `Ride` row (crash-gap or first-run). For each orphan it directly calls its own `computeFromActivity(activityId)`, which is the same method the `ActivityStoredEvent` listener calls. This closes the gap where the process died after persisting an activity but before the calculation completed:
+**Startup consistency check** — `RideService` also listens to `ApplicationReadyEvent` and queries for any `Activity` row with no corresponding `Ride` row (crash-gap or first-run). It calls `RideComputeService.computeAsync()` for each orphan, which re-enters the normal pipeline and eventually triggers `TrainingLoadService` per ride:
 
 ```
 On ApplicationReadyEvent:
-  SELECT a.id, a.start_time FROM activity a
-  LEFT JOIN ride r ON r.activity_id = a.id
-  WHERE r.id IS NULL
-  → for each result: computeFromActivity(activityId)
-  → then: TrainingLoadService.recalculateFrom(earliestOrphanDate)
+  SELECT a.id FROM activity a LEFT JOIN ride r ON r.activity_id = a.id WHERE r.id IS NULL
+  → for each orphan: rideComputeService.computeAsync(activityId, null)
+  → each emits RideCalculatedEvent → TrainingLoadService.recalculateFrom(date)
 ```
-
-TrainingLoad is recalculated once after all orphans are processed (not per-activity) to avoid redundant chain walks.
 
 ### Key Backend Entities
 

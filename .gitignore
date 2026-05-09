@@ -19,6 +19,9 @@ src/main/resources/static/
 # Generated frontend API (openapi-generator output)
 frontend/src/app/core/api/
 
+# Data
+data/session.csv
+
 # SQLite
 *.db
 *.db-shm
