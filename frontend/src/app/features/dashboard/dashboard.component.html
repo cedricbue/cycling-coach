@@ -32,6 +32,13 @@
       subtitle="Functional Threshold Power"
       accent="neutral"
     />
+    <app-metric-card
+      label="FTP/kg"
+      [value]="ftpPerKg() | number:'1.2-2'"
+      unit="W/kg"
+      subtitle="Power-to-weight ratio"
+      accent="neutral"
+    />
   </div>
 
   <!-- PMC Chart -->

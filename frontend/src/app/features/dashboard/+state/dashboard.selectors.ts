@@ -41,3 +41,18 @@ export const selectCurrentFtp = createSelector(selectFtpHistory, (history) => {
     (b.date ?? '').localeCompare(a.date ?? '')
   )[0].ftpValue ?? null;
 });
+
+export const selectAppSettings = createSelector(
+  selectDashboardState,
+  (s) => s.appSettings
+);
+
+/** FTP in W/kg — null if either weight or FTP is unknown */
+export const selectFtpPerKg = createSelector(
+  selectCurrentFtp,
+  selectAppSettings,
+  (ftp, settings) => {
+    if (!ftp || !settings?.weightKg) return null;
+    return ftp / settings.weightKg;
+  }
+);

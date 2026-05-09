@@ -893,6 +893,10 @@ components:
           enum: [ ollama, anthropic ]
         aiModel:
           type: string
+        weightKg:
+          type: number
+          format: double
+          description: Current athlete body weight in kg (from user profile)
         powerZones:
           $ref: "#/components/schemas/PowerZoneSettings"
         hrZones:

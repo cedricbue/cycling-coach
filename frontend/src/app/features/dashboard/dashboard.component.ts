@@ -9,6 +9,7 @@ import {
   selectCurrentFtp,
   selectPmcData,
   selectRecentRides,
+  selectFtpPerKg,
 } from './+state/dashboard.selectors';
 import { MetricCardComponent } from './components/metric-card/metric-card.component';
 import { PmcChartComponent } from './components/pmc-chart/pmc-chart.component';
@@ -32,6 +33,7 @@ export class DashboardComponent implements OnInit {
   readonly loading = this.store.selectSignal(selectDashboardLoading);
   readonly latestPmc = this.store.selectSignal(selectLatestPmc);
   readonly currentFtp = this.store.selectSignal(selectCurrentFtp);
+  readonly ftpPerKg = this.store.selectSignal(selectFtpPerKg);
   readonly pmcData = this.store.selectSignal(selectPmcData);
   readonly recentRides = this.store.selectSignal(selectRecentRides);
 
