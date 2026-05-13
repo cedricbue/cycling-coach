@@ -5,11 +5,35 @@ import org.jooq.DSLContext
 import org.springframework.stereotype.Repository
 import java.time.LocalDate
 
-@Repository
-class WeightRepository(private val dsl: DSLContext) {
+data class WeightRow(
+    val id: Long,
+    val date: LocalDate,
+    val weightKg: Double,
+)
 
-    fun upsert(date: LocalDate, weightKg: Double) {
-        dsl.insertInto(USER_WEIGHT)
+@Repository
+class WeightRepository(
+    private val dsl: DSLContext,
+) {
+    fun findAll(): List<WeightRow> =
+        dsl
+            .selectFrom(USER_WEIGHT)
+            .orderBy(USER_WEIGHT.DATE.desc())
+            .fetch()
+            .map {
+                WeightRow(
+                    id = it.id!!.toLong(),
+                    date = LocalDate.parse(it.date!!),
+                    weightKg = it.weightKg!!.toDouble(),
+                )
+            }
+
+    fun upsert(
+        date: LocalDate,
+        weightKg: Double,
+    ) {
+        dsl
+            .insertInto(USER_WEIGHT)
             .set(USER_WEIGHT.DATE, date.toString())
             .set(USER_WEIGHT.WEIGHT_KG, weightKg.toFloat())
             .onConflict(USER_WEIGHT.DATE)
@@ -19,7 +43,8 @@ class WeightRepository(private val dsl: DSLContext) {
     }
 
     fun findLatestWeight(): Double? =
-        dsl.select(USER_WEIGHT.WEIGHT_KG)
+        dsl
+            .select(USER_WEIGHT.WEIGHT_KG)
             .from(USER_WEIGHT)
             .orderBy(USER_WEIGHT.DATE.desc())
             .limit(1)
@@ -27,7 +52,8 @@ class WeightRepository(private val dsl: DSLContext) {
             ?.toDouble()
 
     fun findWeightAtOrBefore(date: LocalDate): Double? =
-        dsl.select(USER_WEIGHT.WEIGHT_KG)
+        dsl
+            .select(USER_WEIGHT.WEIGHT_KG)
             .from(USER_WEIGHT)
             .where(USER_WEIGHT.DATE.lessOrEqual(date.toString()))
             .orderBy(USER_WEIGHT.DATE.desc())

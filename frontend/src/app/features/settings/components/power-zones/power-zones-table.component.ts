@@ -1,4 +1,5 @@
 import { Component, input, computed } from '@angular/core';
+import { DecimalPipe } from '@angular/common';
 import { MatTableModule } from '@angular/material/table';
 import { PowerZoneSettings } from '../../../../core/api/model/models';
 
@@ -14,7 +15,7 @@ interface ZoneRow {
 
 @Component({
   selector: 'app-power-zones-table',
-  imports: [MatTableModule],
+  imports: [DecimalPipe, MatTableModule],
   templateUrl: './power-zones-table.component.html',
   styleUrl: './power-zones-table.component.scss',
 })

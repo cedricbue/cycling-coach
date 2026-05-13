@@ -18,7 +18,6 @@ import java.time.LocalDate
 @Tag("integration")
 @RecordApplicationEvents
 class GarminWeightSyncIntegrationTest : AbstractApplicationIntegrationTest() {
-
     @Autowired
     private lateinit var garminConnect: GarminConnect
 
@@ -29,7 +28,8 @@ class GarminWeightSyncIntegrationTest : AbstractApplicationIntegrationTest() {
     lateinit var applicationEvents: ApplicationEvents
 
     private val threeEntriesJson: String by lazy {
-        javaClass.getResourceAsStream("/fixtures/garmin/weight_three_entries.json")!!
+        javaClass
+            .getResourceAsStream("/fixtures/garmin/weight_three_entries.json")!!
             .bufferedReader()
             .readText()
     }
@@ -46,7 +46,8 @@ class GarminWeightSyncIntegrationTest : AbstractApplicationIntegrationTest() {
         garminWeightSyncService.sync().get()
 
         val externalIds =
-            dsl.select(GARMIN_WEIGHT.EXTERNAL_ID)
+            dsl
+                .select(GARMIN_WEIGHT.EXTERNAL_ID)
                 .from(GARMIN_WEIGHT)
                 .fetch(GARMIN_WEIGHT.EXTERNAL_ID)
                 .toSet()
@@ -64,7 +65,8 @@ class GarminWeightSyncIntegrationTest : AbstractApplicationIntegrationTest() {
         garminWeightSyncService.sync().get()
 
         val rawJsonEntries =
-            dsl.select(GARMIN_WEIGHT.RAW_JSON)
+            dsl
+                .select(GARMIN_WEIGHT.RAW_JSON)
                 .from(GARMIN_WEIGHT)
                 .fetch(GARMIN_WEIGHT.RAW_JSON)
         assertThat(rawJsonEntries).hasSize(3)
@@ -79,7 +81,8 @@ class GarminWeightSyncIntegrationTest : AbstractApplicationIntegrationTest() {
         garminWeightSyncService.sync().get()
 
         val count =
-            dsl.selectCount()
+            dsl
+                .selectCount()
                 .from(GARMIN_WEIGHT)
                 .fetchOne(0, Int::class.java)
         assertThat(count).isEqualTo(3)
@@ -124,4 +127,3 @@ class GarminWeightSyncIntegrationTest : AbstractApplicationIntegrationTest() {
         )
     }
 }
-

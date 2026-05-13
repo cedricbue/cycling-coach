@@ -1,0 +1,26 @@
+<div class="cc-page user-profile">
+  <div class="page-header">
+    <h1 class="mat-headline-medium">Profile</h1>
+    @if (loading()) {
+      <mat-spinner diameter="24" />
+    }
+  </div>
+
+  <div class="cc-card">
+    <mat-tab-group animationDuration="0" [selectedIndex]="selectedIndex" (selectedTabChange)="onTabChange($event)">
+
+      <mat-tab label="FTP History">
+        <div class="tab-content">
+          <app-ftp-history [history]="ftpHistory()" />
+        </div>
+      </mat-tab>
+
+      <mat-tab label="Weight History">
+        <div class="tab-content">
+          <app-weight-history [history]="weightHistory()" />
+        </div>
+      </mat-tab>
+
+    </mat-tab-group>
+  </div>
+</div>

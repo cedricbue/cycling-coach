@@ -15,7 +15,15 @@ class GarminWeightService(
         if (inputs.isEmpty()) return
         garminWeightRepository.batchUpsert(inputs.map { it.externalId to it.rawJson })
         log.debug("Stored {} garmin weight measurement(s)", inputs.size)
-        eventPublisher.publishEvent(GarminWeightStoredEvent(inputs.map { GarminWeightStoredEvent.Entry(it.date, it.rawJson) }))
+        eventPublisher.publishEvent(
+            GarminWeightStoredEvent(
+                inputs.map {
+                    GarminWeightStoredEvent.Entry(
+                        it.date,
+                        it.rawJson,
+                    )
+                },
+            ),
+        )
     }
-
 }

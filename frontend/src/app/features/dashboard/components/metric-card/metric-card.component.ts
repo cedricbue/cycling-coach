@@ -20,20 +20,22 @@ export type MetricCardAccent = 'blue' | 'orange' | 'green' | 'neutral' | 'red';
           >info_outline</mat-icon>
         }
       </div>
-      <div class="value">
-        {{ value() !== null && value() !== undefined ? value() : '—' }}
-        @if (unit()) {
-          <span class="unit">{{ unit() }}</span>
-        }
-      </div>
-      @if (secondaryValue()) {
-        <div class="secondary-value">
-          {{ secondaryValue() }}
-          @if (secondaryUnit()) {
-            <span class="secondary-unit">{{ secondaryUnit() }}</span>
+      <div class="value-row">
+        <div class="value">
+          {{ value() !== null && value() !== undefined ? value() : '—' }}
+          @if (unit()) {
+            <span class="unit">{{ unit() }}</span>
           }
         </div>
-      }
+        @if (secondaryValue()) {
+          <div class="secondary-value">
+            {{ secondaryValue() }}
+            @if (secondaryUnit()) {
+              <span class="secondary-unit">{{ secondaryUnit() }}</span>
+            }
+          </div>
+        }
+      </div>
       @if (subtitle()) {
         <div class="subtitle">{{ subtitle() }}</div>
       }

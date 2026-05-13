@@ -35,7 +35,8 @@ class GarminActivityService(
 
     fun existsByExternalId(externalId: String): Boolean = garminActivityRepository.existsByExternalId(externalId)
 
-    fun findExistingExternalIds(externalIds: Collection<String>): Set<String> = garminActivityRepository.findExistingExternalIds(externalIds)
+    fun findExistingExternalIds(externalIds: Collection<String>): Set<String> =
+        garminActivityRepository.findExistingExternalIds(externalIds)
 
     fun findLatestStartTime(): LocalDate? = garminActivityRepository.findLatestStartTime()
 }

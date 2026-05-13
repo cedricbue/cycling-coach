@@ -1,9 +1,8 @@
 package com.cyclingcoach
 
-import com.cyclingcoach.AbstractApplicationIntegrationTest
 import com.cyclingcoach.garmin.GarminSyncService
+import com.cyclingcoach.generated.jooq.tables.references.FTP_TEST
 import com.cyclingcoach.generated.jooq.tables.references.RIDE
-import com.cyclingcoach.generated.jooq.tables.references.USER_PROFILE
 import com.cyclingcoach.generated.jooq.tables.references.USER_WEIGHT
 import com.cyclingcoach.pmc.TrainingLoadRepository
 import com.cyclingcoach.user.UserProfileService
@@ -32,7 +31,6 @@ import java.time.LocalDate
  */
 @Tag("integration")
 class GarminSyncPipelineIntegrationTest : AbstractApplicationIntegrationTest() {
-
     @Autowired
     private lateinit var garminSyncService: GarminSyncService
 
@@ -43,29 +41,35 @@ class GarminSyncPipelineIntegrationTest : AbstractApplicationIntegrationTest() {
     private lateinit var userProfileService: UserProfileService
 
     private val activityJson by lazy {
-        javaClass.getResourceAsStream("/fixtures/garmin/activity_22801381040.json")!!
+        javaClass
+            .getResourceAsStream("/fixtures/garmin/activity_22801381040.json")!!
             .bufferedReader()
             .readText()
     }
 
     private val activityTcx by lazy {
-        javaClass.getResourceAsStream("/fixtures/garmin/activity_22801381040.tcx")!!
+        javaClass
+            .getResourceAsStream("/fixtures/garmin/activity_22801381040.tcx")!!
             .bufferedReader()
             .readText()
     }
 
     private val weightJson by lazy {
-        javaClass.getResourceAsStream("/fixtures/garmin/weight_three_entries.json")!!
+        javaClass
+            .getResourceAsStream("/fixtures/garmin/weight_three_entries.json")!!
             .bufferedReader()
             .readText()
     }
 
     @BeforeEach
     fun setup() {
-        // Seed FTP so TSS and PMC training load can be computed (default is null)
-        dsl.update(USER_PROFILE)
-            .set(USER_PROFILE.CURRENT_FTP, 250f)
-            .where(USER_PROFILE.ID.eq(1))
+        // Seed an FTP test so rides on or after 2020-01-01 have effective FTP = 250W
+        dsl.deleteFrom(FTP_TEST).execute()
+        dsl
+            .insertInto(FTP_TEST)
+            .set(FTP_TEST.DATE, "2020-01-01")
+            .set(FTP_TEST.FTP_VALUE, 250f)
+            .set(FTP_TEST.TEST_TYPE, "TWENTY_MIN_TEST")
             .execute()
 
         // Stub activity list — single real activity
@@ -109,7 +113,8 @@ class GarminSyncPipelineIntegrationTest : AbstractApplicationIntegrationTest() {
         await()
             .atMost(Duration.ofSeconds(10))
             .until {
-                dsl.selectCount()
+                dsl
+                    .selectCount()
                     .from(RIDE)
                     .where(RIDE.EXTERNAL_ID.eq("22801381040"))
                     .fetchOne(0, Int::class.java)!! > 0
@@ -148,7 +153,8 @@ class GarminSyncPipelineIntegrationTest : AbstractApplicationIntegrationTest() {
         await()
             .atMost(Duration.ofSeconds(5))
             .until {
-                dsl.selectCount()
+                dsl
+                    .selectCount()
                     .from(USER_WEIGHT)
                     .fetchOne(0, Int::class.java)!! >= 3
             }

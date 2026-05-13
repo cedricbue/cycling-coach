@@ -23,5 +23,6 @@ class RideEventListener(
     @EventListener(ApplicationReadyEvent::class)
     fun onApplicationReady() {
         rideService.reconcileOrphanedActivities()
+        rideService.reconcileRidesWithNullTss()
     }
 }

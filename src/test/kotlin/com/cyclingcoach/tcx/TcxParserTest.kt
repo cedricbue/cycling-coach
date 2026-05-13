@@ -7,12 +7,13 @@ import org.junit.jupiter.api.Test
 
 @Tag("unit")
 class TcxParserTest {
-
     private val parser = TcxParser()
 
     private fun loadFixture(name: String): String =
-        TcxParserTest::class.java.getResourceAsStream("/fixtures/garmin/$name")!!
-            .bufferedReader().readText()
+        TcxParserTest::class.java
+            .getResourceAsStream("/fixtures/garmin/$name")!!
+            .bufferedReader()
+            .readText()
 
     @Test
     fun `supports returns true for TCX content`() {

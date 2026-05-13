@@ -1,9 +1,10 @@
 package com.cyclingcoach.ride
 
+import com.cyclingcoach.ftp.RidePowerSample
 import com.cyclingcoach.generated.jooq.tables.GarminActivity.Companion.GARMIN_ACTIVITY
 import com.cyclingcoach.generated.jooq.tables.Ride.Companion.RIDE
-import com.cyclingcoach.ftp.RidePowerSample
 import org.jooq.DSLContext
+import org.jooq.impl.DSL
 import org.springframework.stereotype.Repository
 import java.time.LocalDate
 
@@ -19,10 +20,12 @@ data class RideMetrics(
 )
 
 @Repository
-class RideRepository(private val dsl: DSLContext) {
-
+class RideRepository(
+    private val dsl: DSLContext,
+) {
     fun save(input: RideInput): Long {
-        dsl.insertInto(RIDE)
+        dsl
+            .insertInto(RIDE)
             .set(RIDE.ACTIVITY_ID, input.activityId.toInt())
             .set(RIDE.EXTERNAL_ID, input.externalId)
             .set(RIDE.DATE, input.date.toString())
@@ -77,8 +80,11 @@ class RideRepository(private val dsl: DSLContext) {
             .set(RIDE.AVG_GRADE, input.avgGrade?.toFloat())
             .set(RIDE.MAX_GRADE, input.maxGrade?.toFloat())
             .set(RIDE.NORMALIZED_POWER, input.normalizedPower?.toFloat())
-            .set(RIDE.INTENSITY_FACTOR, input.intensityFactor?.toFloat())
-            .set(RIDE.TSS, input.tss?.toFloat())
+            // FTP-dependent fields: keep the existing non-null value when a concurrent compute has no FTP yet
+            .set(RIDE.FTP, DSL.coalesce(DSL.`val`(input.ftp?.toFloat()), RIDE.FTP))
+            .set(RIDE.INTENSITY_FACTOR, DSL.coalesce(DSL.`val`(input.intensityFactor?.toFloat()), RIDE.INTENSITY_FACTOR))
+            .set(RIDE.TSS, DSL.coalesce(DSL.`val`(input.tss?.toFloat()), RIDE.TSS))
+            .set(RIDE.WATTS_PER_KG, DSL.coalesce(DSL.`val`(input.wattsPerKg?.toFloat()), RIDE.WATTS_PER_KG))
             .set(RIDE.BEST_POWER_5S, input.bestPower5s?.toFloat())
             .set(RIDE.BEST_POWER_30S, input.bestPower30s?.toFloat())
             .set(RIDE.BEST_POWER_1MIN, input.bestPower1min?.toFloat())
@@ -86,29 +92,69 @@ class RideRepository(private val dsl: DSLContext) {
             .set(RIDE.BEST_POWER_10MIN, input.bestPower10min?.toFloat())
             .set(RIDE.BEST_POWER_20MIN, input.bestPower20min?.toFloat())
             .set(RIDE.BEST_POWER_60MIN, input.bestPower60min?.toFloat())
-            .set(RIDE.WATTS_PER_KG, input.wattsPerKg?.toFloat())
-            .set(RIDE.FTP, input.ftp?.toFloat())
             .set(RIDE.AVG_SPEED_MPS, input.avgSpeedMps?.toFloat())
             .set(RIDE.MAX_SPEED_MPS, input.maxSpeedMps?.toFloat())
             .set(RIDE.VARIABILITY_INDEX, input.variabilityIndex?.toFloat())
             .set(RIDE.EFFICIENCY_FACTOR, input.efficiencyFactor?.toFloat())
             .execute()
-        return dsl.select(RIDE.ID)
+        return dsl
+            .select(RIDE.ID)
             .from(RIDE)
             .where(RIDE.EXTERNAL_ID.eq(input.externalId))
-            .fetchOne(RIDE.ID)!!.toLong()
+            .fetchOne(RIDE.ID)!!
+            .toLong()
     }
 
+    fun findActivityIdsSince(from: LocalDate): List<Long> =
+        dsl
+            .select(RIDE.ACTIVITY_ID)
+            .from(RIDE)
+            .where(RIDE.DATE.ge(from.toString()))
+            .and(RIDE.ACTIVITY_ID.isNotNull)
+            .orderBy(RIDE.DATE)
+            .fetch(RIDE.ACTIVITY_ID)
+            .filterNotNull()
+            .map { it.toLong() }
+
+    fun findActivityIdsByDateRange(
+        from: LocalDate,
+        to: LocalDate,
+    ): List<Long> =
+        dsl
+            .select(RIDE.ACTIVITY_ID)
+            .from(RIDE)
+            .where(RIDE.DATE.ge(from.toString()))
+            .and(RIDE.DATE.le(to.toString()))
+            .and(RIDE.ACTIVITY_ID.isNotNull)
+            .fetch(RIDE.ACTIVITY_ID)
+            .filterNotNull()
+            .map { it.toLong() }
+
+    fun findActivityIdsWithNullTss(): List<Long> =
+        dsl
+            .select(RIDE.ACTIVITY_ID)
+            .from(RIDE)
+            .where(RIDE.TSS.isNull)
+            .and(RIDE.NORMALIZED_POWER.isNotNull)
+            .fetch(RIDE.ACTIVITY_ID)
+            .filterNotNull()
+            .map { it.toLong() }
+
     fun findActivityIdsWithoutRide(): List<Long> =
-        dsl.select(GARMIN_ACTIVITY.ID)
+        dsl
+            .select(GARMIN_ACTIVITY.ID)
             .from(GARMIN_ACTIVITY)
-            .leftJoin(RIDE).on(RIDE.ACTIVITY_ID.eq(GARMIN_ACTIVITY.ID))
+            .leftJoin(RIDE)
+            .on(RIDE.ACTIVITY_ID.eq(GARMIN_ACTIVITY.ID))
             .where(RIDE.ID.isNull)
             .fetch(GARMIN_ACTIVITY.ID)
             .filterNotNull()
             .map { it.toLong() }
 
-    fun findPowerSamplesBefore(beforeDate: LocalDate, lookbackDays: Int = 90): List<RidePowerSample> {
+    fun findPowerSamplesBefore(
+        beforeDate: LocalDate,
+        lookbackDays: Int = 90,
+    ): List<RidePowerSample> {
         val windowStart = beforeDate.minusDays(lookbackDays.toLong())
         return dsl
             .select(
@@ -117,8 +163,7 @@ class RideRepository(private val dsl: DSLContext) {
                 RIDE.BEST_POWER_10MIN,
                 RIDE.BEST_POWER_20MIN,
                 RIDE.BEST_POWER_60MIN,
-            )
-            .from(RIDE)
+            ).from(RIDE)
             .where(RIDE.DATE.lt(beforeDate.toString()))
             .and(RIDE.DATE.ge(windowStart.toString()))
             .and(RIDE.DURATION.ge(1200f))
@@ -133,24 +178,33 @@ class RideRepository(private val dsl: DSLContext) {
             }
     }
 
+    fun findMaxHrByRideId(rideId: Long): Int? =
+        dsl
+            .select(RIDE.MAX_HR)
+            .from(RIDE)
+            .where(RIDE.ID.eq(rideId.toInt()))
+            .fetchOne(RIDE.MAX_HR)
+            ?.toInt()
+
     fun findNameByRideId(rideId: Long): String? =
-        dsl.select(RIDE.NAME)
+        dsl
+            .select(RIDE.NAME)
             .from(RIDE)
             .where(RIDE.ID.eq(rideId.toInt()))
             .fetchOne(RIDE.NAME)
 
     fun findMetricsById(rideId: Long): RideMetrics? =
-        dsl.select(
-            RIDE.DURATION,
-            RIDE.AVG_POWER,
-            RIDE.VARIABILITY_INDEX,
-            RIDE.BEST_POWER_1MIN,
-            RIDE.BEST_POWER_5MIN,
-            RIDE.BEST_POWER_10MIN,
-            RIDE.BEST_POWER_20MIN,
-            RIDE.BEST_POWER_60MIN,
-        )
-            .from(RIDE)
+        dsl
+            .select(
+                RIDE.DURATION,
+                RIDE.AVG_POWER,
+                RIDE.VARIABILITY_INDEX,
+                RIDE.BEST_POWER_1MIN,
+                RIDE.BEST_POWER_5MIN,
+                RIDE.BEST_POWER_10MIN,
+                RIDE.BEST_POWER_20MIN,
+                RIDE.BEST_POWER_60MIN,
+            ).from(RIDE)
             .where(RIDE.ID.eq(rideId.toInt()))
             .fetchOne { record ->
                 RideMetrics(

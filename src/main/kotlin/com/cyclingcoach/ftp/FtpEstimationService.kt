@@ -2,7 +2,6 @@ package com.cyclingcoach.ftp
 
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
-import java.time.LocalDate
 import kotlin.math.roundToInt
 
 /**
@@ -21,7 +20,6 @@ import kotlin.math.roundToInt
  */
 @Service
 class FtpEstimationService {
-
     private val log = LoggerFactory.getLogger(javaClass)
 
     data class EstimationResult(
@@ -48,8 +46,22 @@ class FtpEstimationService {
         if (cpResult != null) estimates += cpResult
 
         bests.best60min?.let { estimates += WeightedEstimate(it * 1.00, 1.00, "60min_direct") }
-        bests.best20min?.let { estimates += WeightedEstimate((it * 0.95).roundToInt().toDouble(), 0.85, "20min_coggan") }
-        bests.best10min?.let { estimates += WeightedEstimate((it * 0.85).roundToInt().toDouble(), 0.60, "10min_estimate") }
+        bests.best20min?.let {
+            estimates +=
+                WeightedEstimate(
+                    (it * 0.95).roundToInt().toDouble(),
+                    0.85,
+                    "20min_coggan",
+                )
+        }
+        bests.best10min?.let {
+            estimates +=
+                WeightedEstimate(
+                    (it * 0.85).roundToInt().toDouble(),
+                    0.60,
+                    "10min_estimate",
+                )
+        }
 
         if (estimates.isEmpty()) return null
 
@@ -78,7 +90,11 @@ class FtpEstimationService {
         val best60min: Double?,
     )
 
-    private data class WeightedEstimate(val value: Double, val weight: Double, val method: String)
+    private data class WeightedEstimate(
+        val value: Double,
+        val weight: Double,
+        val method: String,
+    )
 
     private data class CpModelResult(
         val cp: Double,
@@ -88,10 +104,30 @@ class FtpEstimationService {
 
     private fun extractBests(samples: List<RidePowerSample>): Bests =
         Bests(
-            best5min  = samples.filter { it.durationSeconds >= 300  }.mapNotNull { it.bestPower5min  }.filter { it > 0 }.maxOrNull(),
-            best10min = samples.filter { it.durationSeconds >= 600  }.mapNotNull { it.bestPower10min }.filter { it > 0 }.maxOrNull(),
-            best20min = samples.filter { it.durationSeconds >= 1200 }.mapNotNull { it.bestPower20min }.filter { it > 0 }.maxOrNull(),
-            best60min = samples.filter { it.durationSeconds >= 3600 }.mapNotNull { it.bestPower60min }.filter { it > 0 }.maxOrNull(),
+            best5min =
+                samples
+                    .filter { it.durationSeconds >= 300 }
+                    .mapNotNull { it.bestPower5min }
+                    .filter { it > 0 }
+                    .maxOrNull(),
+            best10min =
+                samples
+                    .filter { it.durationSeconds >= 600 }
+                    .mapNotNull { it.bestPower10min }
+                    .filter { it > 0 }
+                    .maxOrNull(),
+            best20min =
+                samples
+                    .filter { it.durationSeconds >= 1200 }
+                    .mapNotNull { it.bestPower20min }
+                    .filter { it > 0 }
+                    .maxOrNull(),
+            best60min =
+                samples
+                    .filter { it.durationSeconds >= 3600 }
+                    .mapNotNull { it.bestPower60min }
+                    .filter { it > 0 }
+                    .maxOrNull(),
         )
 
     /**
@@ -103,9 +139,11 @@ class FtpEstimationService {
         val durationSeconds = listOf(300.0, 600.0, 1200.0, 3600.0)
         val powers = listOf(bests.best5min, bests.best10min, bests.best20min, bests.best60min)
 
-        val dataPoints = durationSeconds.zip(powers)
-            .filter { (_, power) -> power != null && power > 0 }
-            .map { (t, power) -> Pair(t, power!! * t) }
+        val dataPoints =
+            durationSeconds
+                .zip(powers)
+                .filter { (_, power) -> power != null && power > 0 }
+                .map { (t, power) -> Pair(t, power!! * t) }
 
         if (dataPoints.size < 2) return null
 
@@ -141,7 +179,10 @@ class FtpEstimationService {
         return CpModelResult(slope, intercept, rSquared)
     }
 
-    private fun determineConfidence(estimates: List<WeightedEstimate>, cpResult: WeightedEstimate?): Confidence {
+    private fun determineConfidence(
+        estimates: List<WeightedEstimate>,
+        cpResult: WeightedEstimate?,
+    ): Confidence {
         val strongSignals = estimates.count { it.weight >= 0.85 }
         val rSquared = if (cpResult != null) cpResult.weight / 0.90 else null
         return when {
@@ -151,4 +192,3 @@ class FtpEstimationService {
         }
     }
 }
-

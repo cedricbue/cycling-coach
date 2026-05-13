@@ -1,0 +1,56 @@
+<table mat-table [dataSource]="rows()" class="zones-table">
+
+  <ng-container matColumnDef="zone">
+    <th mat-header-cell *matHeaderCellDef>Zone</th>
+    <td mat-cell *matCellDef="let row">
+      <span class="zone-badge" [class]="'z' + row.zone.toLowerCase()">{{ row.zone }}</span>
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="name">
+    <th mat-header-cell *matHeaderCellDef>Name</th>
+    <td mat-cell *matCellDef="let row">{{ row.name }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="watts">
+    <th mat-header-cell *matHeaderCellDef>
+      <span class="col-label">Power</span>
+      <span class="col-sub">% FTP · watts</span>
+    </th>
+    <td mat-cell *matCellDef="let row" class="metric-cell">
+      <span class="pct">{{ row.powerMinPct }}–{{ row.powerMaxPct ?? '∞' }}%</span>
+      @if (row.minW !== null) {
+        <span class="value">{{ row.minW | number:'1.0-0' }}–{{ row.maxW != null ? (row.maxW | number:'1.0-0') : '∞' }} W</span>
+      } @else {
+        <span class="value dim">— W</span>
+      }
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="bpm">
+    <th mat-header-cell *matHeaderCellDef>
+      <span class="col-label">Heart rate</span>
+      <span class="col-sub">% max HR · bpm</span>
+    </th>
+    <td mat-cell *matCellDef="let row" class="metric-cell">
+      @if (row.hrMinPct !== null) {
+        <span class="pct">{{ row.hrMinPct }}–{{ row.hrMaxPct ?? '∞' }}%</span>
+        @if (row.minBpm !== null) {
+          <span class="value">{{ row.minBpm }}–{{ row.maxBpm != null ? row.maxBpm : '∞' }} bpm</span>
+        } @else {
+          <span class="value dim">— bpm</span>
+        }
+      } @else {
+        <span class="no-hr">HR lags</span>
+      }
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="description">
+    <th mat-header-cell *matHeaderCellDef>Training purpose</th>
+    <td mat-cell *matCellDef="let row" class="description-cell">{{ row.description }}</td>
+  </ng-container>
+
+  <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+  <tr mat-row *matRowDef="let row; columns: displayedColumns;" [class.power-only]="row.hrMinPct === null"></tr>
+</table>

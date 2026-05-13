@@ -19,6 +19,40 @@
     }
   }
 
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .range-selector {
+    display: flex;
+    gap: 4px;
+  }
+
+  .range-btn {
+    padding: 3px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    border: 1px solid var(--mat-sys-outline-variant);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--mat-sys-on-surface-variant);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+
+    &:hover {
+      background: var(--mat-sys-surface-variant);
+    }
+
+    &.active {
+      background: var(--mat-sys-primary);
+      color: var(--mat-sys-on-primary);
+      border-color: var(--mat-sys-primary);
+    }
+  }
+
   .legend {
     display: flex;
     align-items: center;

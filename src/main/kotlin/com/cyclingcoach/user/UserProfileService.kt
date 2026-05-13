@@ -1,6 +1,5 @@
 package com.cyclingcoach.user
 
-import com.cyclingcoach.ftp.FtpTestDetectedEvent
 import com.cyclingcoach.garmin.connect.client.GarminWeightEntry
 import com.cyclingcoach.garmin.connect.weight.GarminWeightStoredEvent
 import com.fasterxml.jackson.databind.DeserializationFeature
@@ -17,15 +16,15 @@ class UserProfileService(
     private val log = LoggerFactory.getLogger(javaClass)
     private val mapper = ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
-    fun findCurrentFtp(): Double? = userProfileRepository.findCurrentFtp()
-
     fun findLatestWeightKg(): Double? = weightRepository.findLatestWeight()
 
     fun findWeightKgAt(date: LocalDate): Double? = weightRepository.findWeightAtOrBefore(date)
 
-    fun updateFtp(event: FtpTestDetectedEvent) {
-        userProfileRepository.updateCurrentFtp(event.ftpValue, event.date)
-        log.info("User FTP updated to {}W from {} test on {}", event.ftpValue.toInt(), event.testType, event.date)
+    fun findMaxHr(): Int? = userProfileRepository.findMaxHr()
+
+    fun updateMaxHrIfHigher(maxHr: Int) {
+        if (maxHr <= 0) return
+        userProfileRepository.updateMaxHrIfHigher(maxHr)
     }
 
     fun storeWeightMeasurements(event: GarminWeightStoredEvent) {

@@ -1,10 +1,11 @@
 import { Component, input } from '@angular/core';
 import { DecimalPipe, DatePipe } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { RideSummary } from '../../../../core/api/model/models';
 
 @Component({
   selector: 'app-recent-rides',
-  imports: [DecimalPipe, DatePipe],
+  imports: [DecimalPipe, DatePipe, RouterLink],
   templateUrl: './recent-rides.component.html',
   styleUrl: './recent-rides.component.scss',
 })

@@ -9,6 +9,8 @@ import { DASHBOARD_FEATURE_KEY, dashboardReducer } from './features/dashboard/+s
 import { DashboardEffects } from './features/dashboard/+state/dashboard.effects';
 import { SETTINGS_FEATURE_KEY, settingsReducer } from './features/settings/+state/settings.reducer';
 import { SettingsEffects } from './features/settings/+state/settings.effects';
+import { PROFILE_FEATURE_KEY, profileReducer } from './features/user-profile/+state/profile.reducer';
+import { ProfileEffects } from './features/user-profile/+state/profile.effects';
 
 export const routes: Routes = [
   {
@@ -57,6 +59,17 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/settings/settings.component').then(
             (m) => m.SettingsComponent
+          ),
+      },
+      {
+        path: 'profile',
+        providers: [
+          provideState(PROFILE_FEATURE_KEY, profileReducer),
+          provideEffects(ProfileEffects),
+        ],
+        loadComponent: () =>
+          import('./features/user-profile/user-profile.component').then(
+            (m) => m.UserProfileComponent
           ),
       },
     ],

@@ -9,23 +9,24 @@
     gap: 16px;
     margin-bottom: 24px;
 
-    h1 {
-      margin: 0;
-    }
+    h1 { margin: 0; }
   }
 
   .cc-card {
     padding: 0;
-    overflow: hidden;
+
+    ::ng-deep .mat-mdc-tab-body-content {
+      padding: 20px 24px 24px;
+    }
   }
 
-  .tab-content {
-    padding: 24px;
-  }
-
-  .ftp-note {
+  .zone-note {
+    font-size: 13px;
     color: var(--mat-sys-on-surface-variant);
     margin: 0 0 16px;
-    font-size: 13px;
+
+    strong { color: var(--mat-sys-on-surface); }
+
+    &.dim { font-style: italic; }
   }
 }

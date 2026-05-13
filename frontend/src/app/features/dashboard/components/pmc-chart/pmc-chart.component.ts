@@ -1,6 +1,8 @@
 import {
   Component,
   input,
+  signal,
+  computed,
   effect,
   ElementRef,
   viewChild,
@@ -12,6 +14,19 @@ import { PmcDataPoint } from '../../../../core/api/model/models';
 
 Chart.register(...registerables);
 
+const ACCENT_BLUE = '#3f51b5';
+const ACCENT_ORANGE = '#ff9800';
+const ACCENT_GREEN = '#4caf50';
+
+type Range = '90d' | '6m' | '1y' | 'all';
+
+const RANGES: { label: string; value: Range }[] = [
+  { label: '90d', value: '90d' },
+  { label: '6m', value: '6m' },
+  { label: '1y', value: '1y' },
+  { label: 'All', value: 'all' },
+];
+
 @Component({
   selector: 'app-pmc-chart',
   imports: [],
@@ -19,10 +34,21 @@ Chart.register(...registerables);
     <div class="cc-card chart-wrapper">
       <div class="chart-header">
         <h2 class="mat-title-medium">Performance Management Chart</h2>
-        <div class="legend">
-          <span class="legend-dot" style="background:#3f51b5"></span>CTL (Fitness)
-          <span class="legend-dot" style="background:#ff9800"></span>ATL (Fatigue)
-          <span class="legend-dot" style="background:#4caf50"></span>TSB (Form)
+        <div class="controls">
+          <div class="range-selector">
+            @for (r of ranges; track r.value) {
+              <button
+                class="range-btn"
+                [class.active]="selectedRange() === r.value"
+                (click)="setRange(r.value)"
+              >{{ r.label }}</button>
+            }
+          </div>
+          <div class="legend">
+            <span class="legend-dot" style="background:#3f51b5"></span>CTL
+            <span class="legend-dot" style="background:#ff9800"></span>ATL
+            <span class="legend-dot" style="background:#4caf50"></span>TSB
+          </div>
         </div>
       </div>
       <canvas #chartCanvas></canvas>
@@ -32,6 +58,21 @@ Chart.register(...registerables);
 })
 export class PmcChartComponent implements AfterViewInit, OnDestroy {
   readonly data = input<PmcDataPoint[]>([]);
+  readonly ranges = RANGES;
+
+  readonly selectedRange = signal<Range>('90d');
+
+  readonly filteredData = computed(() => {
+    const points = this.data();
+    const range = this.selectedRange();
+    if (range === 'all' || points.length === 0) return points;
+
+    const days = range === '90d' ? 90 : range === '6m' ? 182 : 365;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    const cutoffStr = cutoff.toISOString().split('T')[0];
+    return points.filter((p) => (p.date ?? '') >= cutoffStr);
+  });
 
   private readonly chartCanvas =
     viewChild.required<ElementRef<HTMLCanvasElement>>('chartCanvas');
@@ -39,7 +80,7 @@ export class PmcChartComponent implements AfterViewInit, OnDestroy {
 
   constructor() {
     effect(() => {
-      const points = this.data();
+      const points = this.filteredData();
       if (this.chart) {
         this.updateChart(points);
       }
@@ -47,11 +88,15 @@ export class PmcChartComponent implements AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit(): void {
-    this.initChart(this.data());
+    this.initChart(this.filteredData());
   }
 
   ngOnDestroy(): void {
     this.chart?.destroy();
+  }
+
+  setRange(range: Range): void {
+    this.selectedRange.set(range);
   }
 
   private initChart(points: PmcDataPoint[]): void {
@@ -69,8 +114,10 @@ export class PmcChartComponent implements AfterViewInit, OnDestroy {
           legend: { display: false },
           tooltip: {
             callbacks: {
-              label: (ctx) =>
-                `${ctx.dataset.label}: ${Math.round(ctx.parsed.y as number)}`,
+              label: (ctx) => {
+                const v = ctx.parsed.y as number;
+                return `${ctx.dataset.label}: ${Math.round(v)}`;
+              },
             },
           },
         },
@@ -80,8 +127,13 @@ export class PmcChartComponent implements AfterViewInit, OnDestroy {
             grid: { color: 'rgba(0,0,0,0.05)' },
           },
           y: {
+            position: 'left',
             ticks: { font: { size: 11 } },
-            grid: { color: 'rgba(0,0,0,0.05)' },
+            grid: {
+              color: (ctx) =>
+                ctx.tick.value === 0 ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.05)',
+              lineWidth: (ctx) => (ctx.tick.value === 0 ? 1.5 : 1),
+            },
           },
         },
       },
@@ -92,8 +144,7 @@ export class PmcChartComponent implements AfterViewInit, OnDestroy {
 
   private updateChart(points: PmcDataPoint[]): void {
     if (!this.chart) return;
-    const datasets = this.buildDatasets(points);
-    this.chart.data = datasets;
+    this.chart.data = this.buildDatasets(points);
     this.chart.update('none');
   }
 
@@ -104,37 +155,40 @@ export class PmcChartComponent implements AfterViewInit, OnDestroy {
       labels,
       datasets: [
         {
-          label: 'CTL',
+          label: 'CTL — Fitness',
           data: points.map((p) => p.ctl ?? 0),
-          borderColor: '#3f51b5',
+          borderColor: ACCENT_BLUE,
           backgroundColor: 'rgba(63,81,181,0.08)',
           fill: true,
           tension: 0.4,
           borderWidth: 2,
           pointRadius: 0,
           pointHoverRadius: 4,
+          yAxisID: 'y',
         },
         {
-          label: 'ATL',
+          label: 'ATL — Fatigue',
           data: points.map((p) => p.atl ?? 0),
-          borderColor: '#ff9800',
+          borderColor: ACCENT_ORANGE,
           backgroundColor: 'rgba(255,152,0,0.08)',
           fill: true,
           tension: 0.4,
           borderWidth: 2,
           pointRadius: 0,
           pointHoverRadius: 4,
+          yAxisID: 'y',
         },
         {
-          label: 'TSB',
+          label: 'TSB — Form',
           data: points.map((p) => p.tsb ?? 0),
-          borderColor: '#4caf50',
+          borderColor: ACCENT_GREEN,
           backgroundColor: 'rgba(76,175,80,0.08)',
           fill: false,
           tension: 0.4,
           borderWidth: 2,
           pointRadius: 0,
           pointHoverRadius: 4,
+          yAxisID: 'y',
         },
       ],
     };

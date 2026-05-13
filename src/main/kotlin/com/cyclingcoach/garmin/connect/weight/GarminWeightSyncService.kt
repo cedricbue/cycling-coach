@@ -29,7 +29,8 @@ class GarminWeightSyncService(
         val since =
             syncCursorRepository.findSince()
                 ?: LocalDate.now().minusDays(
-                    garminProperties.connect.weight.initialFetchDays.toLong(),
+                    garminProperties.connect.weight.initialFetchDays
+                        .toLong(),
                 )
         val until = LocalDate.now()
 

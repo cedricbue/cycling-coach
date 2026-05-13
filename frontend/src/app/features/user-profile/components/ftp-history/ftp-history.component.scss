@@ -91,6 +91,12 @@
       &.icon-auto { color: #7c4dff; }
       &.icon-manual { color: var(--mat-sys-on-surface-variant); }
     }
+
+    .ride-link {
+      color: var(--mat-sys-primary);
+      text-decoration: none;
+      &:hover { text-decoration: underline; }
+    }
   }
 
   .entry-notes {

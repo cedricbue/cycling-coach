@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Test
 
 @Tag("unit")
 class RideCalculatorTest {
-
     // ---- calculateTss ----
 
     @Test
@@ -60,4 +59,3 @@ class RideCalculatorTest {
         assertThat(result).isNotNull().isCloseTo(200.0 / 150.0, Offset.offset(0.001))
     }
 }
-

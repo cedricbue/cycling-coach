@@ -22,7 +22,7 @@
     <th mat-header-cell *matHeaderCellDef>Watts</th>
     <td mat-cell *matCellDef="let row">
       @if (row.minW !== null) {
-        {{ row.minW }}–{{ row.maxW ?? '∞' }} W
+        {{ row.minW | number:'1.0-0' }}–{{ row.maxW != null ? (row.maxW | number:'1.0-0') : '∞' }} W
       } @else {
         —
       }

@@ -1,0 +1,17 @@
+:host {
+  display: block;
+}
+
+.empty-state {
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 14px;
+  padding: 32px 0;
+}
+
+canvas {
+  max-height: 280px;
+
+  &.hidden {
+    display: none;
+  }
+}

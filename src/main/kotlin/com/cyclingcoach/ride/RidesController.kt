@@ -10,13 +10,15 @@ import org.springframework.web.bind.annotation.RestController
 class RidesController(
     private val rideReadService: RideReadService,
 ) : RidesApi {
-
-    override fun listRides(page: Int, size: Int): ResponseEntity<RidePage> =
-        ResponseEntity.ok(rideReadService.listRides(page, size))
+    override fun listRides(
+        page: Int,
+        size: Int,
+    ): ResponseEntity<RidePage> = ResponseEntity.ok(rideReadService.listRides(page, size))
 
     override fun getRide(id: Long): ResponseEntity<RideDetail> {
-        val ride = rideReadService.getRide(id)
-            ?: return ResponseEntity.notFound().build()
+        val ride =
+            rideReadService.getRide(id)
+                ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(ride)
     }
 }

@@ -13,7 +13,7 @@
       </div>
       <div class="entry-content">
         <div class="entry-header">
-          <span class="ftp-value">{{ entry.ftpValue }} W</span>
+          <span class="ftp-value">{{ entry.ftpValue | number:'1.0-0' }} W</span>
           @if (first) {
             <span class="current-badge">Current</span>
           }
@@ -24,6 +24,9 @@
           </mat-icon>
           {{ entry.testType === 'AUTO_DETECTED' ? 'Auto-detected' : 'Manual' }} &bull;
           {{ entry.date | date: 'MMM d, y' }}
+          @if (entry.rideId) {
+            &bull; <a class="ride-link" [routerLink]="['/rides', entry.rideId]">View ride</a>
+          }
         </div>
         @if (entry.notes) {
           <div class="entry-notes">{{ entry.notes }}</div>

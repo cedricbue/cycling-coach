@@ -1,7 +1,7 @@
 package com.cyclingcoach.garmin
 
 import com.cyclingcoach.AbstractApplicationIntegrationTest
-import com.cyclingcoach.garmin.GarminSyncService
+import com.cyclingcoach.garmin.connect.activity.GarminActivitySyncService
 import com.github.tomakehurst.wiremock.client.WireMock.aResponse
 import com.github.tomakehurst.wiremock.client.WireMock.equalTo
 import com.github.tomakehurst.wiremock.client.WireMock.get
@@ -21,7 +21,7 @@ class GarminSyncServiceIntegrationTest : AbstractApplicationIntegrationTest() {
     private lateinit var garminSyncService: GarminSyncService
 
     @Autowired
-    private lateinit var garminActivitySyncService: com.cyclingcoach.garmin.activity.GarminActivitySyncService
+    private lateinit var garminActivitySyncService: GarminActivitySyncService
 
     @BeforeEach
     fun authenticate() {

@@ -6,11 +6,11 @@ import javax.xml.stream.XMLInputFactory
 import javax.xml.stream.XMLStreamConstants
 
 class TcxParser {
-
-    private val xmlInputFactory = XMLInputFactory.newInstance().apply {
-        setProperty(XMLInputFactory.IS_NAMESPACE_AWARE, true)
-        setProperty(XMLInputFactory.IS_COALESCING, true)
-    }
+    private val xmlInputFactory =
+        XMLInputFactory.newInstance().apply {
+            setProperty(XMLInputFactory.IS_NAMESPACE_AWARE, true)
+            setProperty(XMLInputFactory.IS_COALESCING, true)
+        }
 
     fun supports(content: String) = content.contains("TrainingCenterDatabase")
 
@@ -50,21 +50,46 @@ class TcxParser {
                 XMLStreamConstants.START_ELEMENT -> {
                     currentElement = reader.localName
                     when (currentElement) {
-                        "Lap" -> if (!firstLapDone) firstLapSeen = true
-                        "Track" -> if (firstLapSeen && !firstLapDone) inTrack = true
+                        "Lap" -> {
+                            if (!firstLapDone) firstLapSeen = true
+                        }
+
+                        "Track" -> {
+                            if (firstLapSeen && !firstLapDone) inTrack = true
+                        }
+
                         "Trackpoint" -> {
                             inTrackpoint = true
-                            tpTime = null; tpHR = null; tpCadence = null
-                            tpAltitude = null; tpDistance = null; tpSpeed = null; tpPower = null
+                            tpTime = null
+                            tpHR = null
+                            tpCadence = null
+                            tpAltitude = null
+                            tpDistance = null
+                            tpSpeed = null
+                            tpPower = null
                         }
-                        "HeartRateBpm" -> if (inTrackpoint) inHeartRateBpm = true
-                        "TPX" -> if (inTrackpoint) inTPX = true
+
+                        "HeartRateBpm" -> {
+                            if (inTrackpoint) inHeartRateBpm = true
+                        }
+
+                        "TPX" -> {
+                            if (inTrackpoint) inTPX = true
+                        }
                     }
                 }
+
                 XMLStreamConstants.END_ELEMENT -> {
                     when (reader.localName) {
-                        "Lap" -> { firstLapSeen = false; firstLapDone = true }
-                        "Track" -> inTrack = false
+                        "Lap" -> {
+                            firstLapSeen = false
+                            firstLapDone = true
+                        }
+
+                        "Track" -> {
+                            inTrack = false
+                        }
+
                         "Trackpoint" -> {
                             inTrackpoint = false
                             if (tpTime != null) {
@@ -77,29 +102,41 @@ class TcxParser {
                                 powerWatts.add(tpPower)
                             }
                         }
-                        "HeartRateBpm" -> inHeartRateBpm = false
-                        "TPX" -> inTPX = false
+
+                        "HeartRateBpm" -> {
+                            inHeartRateBpm = false
+                        }
+
+                        "TPX" -> {
+                            inTPX = false
+                        }
                     }
                     currentElement = null
                 }
+
                 XMLStreamConstants.CHARACTERS -> {
                     val text = reader.text.trim()
                     if (text.isEmpty()) continue
                     val el = currentElement ?: continue
                     when {
-                        inTrackpoint -> when {
-                            el == "Time" -> tpTime = runCatching { Instant.parse(text) }.getOrNull()
-                            el == "Value" && inHeartRateBpm -> tpHR = text.toIntOrNull()
-                            el == "Cadence" -> tpCadence = text.toIntOrNull()
-                            el == "AltitudeMeters" -> tpAltitude = text.toDoubleOrNull()
-                            el == "DistanceMeters" -> tpDistance = text.toDoubleOrNull()
-                            el == "Speed" && inTPX -> tpSpeed = text.toDoubleOrNull()
-                            el == "Watts" && inTPX -> tpPower = text.toIntOrNull()
+                        inTrackpoint -> {
+                            when {
+                                el == "Time" -> tpTime = runCatching { Instant.parse(text) }.getOrNull()
+                                el == "Value" && inHeartRateBpm -> tpHR = text.toIntOrNull()
+                                el == "Cadence" -> tpCadence = text.toIntOrNull()
+                                el == "AltitudeMeters" -> tpAltitude = text.toDoubleOrNull()
+                                el == "DistanceMeters" -> tpDistance = text.toDoubleOrNull()
+                                el == "Speed" && inTPX -> tpSpeed = text.toDoubleOrNull()
+                                el == "Watts" && inTPX -> tpPower = text.toIntOrNull()
+                            }
                         }
-                        firstLapSeen && !firstLapDone && !inTrack -> when (el) {
-                            "TotalTimeSeconds" -> durationSeconds = text.toDoubleOrNull() ?: 0.0
-                            "DistanceMeters" -> totalDistance = text.toDoubleOrNull() ?: 0.0
-                            "MaximumSpeed" -> maxSpeed = text.toDoubleOrNull()
+
+                        firstLapSeen && !firstLapDone && !inTrack -> {
+                            when (el) {
+                                "TotalTimeSeconds" -> durationSeconds = text.toDoubleOrNull() ?: 0.0
+                                "DistanceMeters" -> totalDistance = text.toDoubleOrNull() ?: 0.0
+                                "MaximumSpeed" -> maxSpeed = text.toDoubleOrNull()
+                            }
                         }
                     }
                 }

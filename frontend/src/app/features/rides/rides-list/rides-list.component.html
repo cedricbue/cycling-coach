@@ -72,6 +72,13 @@
       ></tr>
     </table>
 
-    <p class="total-count">{{ totalElements() }} rides total</p>
+    <mat-paginator
+      [length]="totalElements()"
+      [pageSize]="pageSize()"
+      [pageIndex]="currentPage()"
+      [pageSizeOptions]="pageSizeOptions"
+      (page)="onPage($event)"
+      aria-label="Select rides page"
+    />
   </div>
 }

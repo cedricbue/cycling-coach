@@ -11,7 +11,6 @@ import com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching
  * and full-application integration tests (AbstractApplicationIntegrationTest).
  */
 object GarminConnectWireMockHelper {
-
     fun stubAuthFlow(wireMock: WireMockServer) {
         wireMock.stubFor(
             post(urlPathMatching("/mobile/api/login"))

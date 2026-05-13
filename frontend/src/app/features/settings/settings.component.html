@@ -7,23 +7,28 @@
   </div>
 
   <div class="cc-card">
-    <mat-tab-group animationDuration="200ms">
-      <mat-tab label="Power Zones">
-        <div class="tab-content">
-          @if (currentFtp()) {
-            <p class="ftp-note mat-body-small">
-              Watt ranges calculated from current FTP: <strong>{{ currentFtp() }} W</strong>
-            </p>
-          }
-          <app-power-zones-table [zones]="powerZones()" [ftp]="currentFtp()" />
-        </div>
+    <mat-tab-group animationDuration="0" [selectedIndex]="selectedIndex" (selectedTabChange)="onTabChange($event)">
+
+      <mat-tab>
+        <ng-template mat-tab-label>Power zones</ng-template>
+        @if (currentFtp()) {
+          <p class="zone-note">Watt ranges calculated from current FTP: <strong>{{ currentFtp() }} W</strong></p>
+        } @else {
+          <p class="zone-note dim">No FTP detected yet — sync an FTP test ride to calculate watt ranges.</p>
+        }
+        <app-power-zones-table [zones]="powerZones()" [ftp]="currentFtp()" />
       </mat-tab>
 
-      <mat-tab label="FTP History">
-        <div class="tab-content">
-          <app-ftp-history [history]="ftpHistory()" />
-        </div>
+      <mat-tab>
+        <ng-template mat-tab-label>Heart rate zones</ng-template>
+        @if (maxHr()) {
+          <p class="zone-note">BPM ranges calculated from recorded max HR: <strong>{{ maxHr() }} bpm</strong></p>
+        } @else {
+          <p class="zone-note dim">Max HR not yet recorded — BPM ranges will appear after rides are synced.</p>
+        }
+        <app-hr-zones-table [zones]="hrZones()" [maxHr]="maxHr()" />
       </mat-tab>
+
     </mat-tab-group>
   </div>
 </div>

@@ -19,13 +19,9 @@ export class DashboardEffects {
   readonly loadDashboard$ = createEffect(() =>
     this.actions$.pipe(
       ofType(DashboardActions.loadDashboard),
-      switchMap(() => {
-        const ninetyDaysAgo = new Date();
-        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-        const from = ninetyDaysAgo.toISOString().split('T')[0];
-
-        return forkJoin({
-          pmcData: this.pmcService.getPmc(from),
+      switchMap(() =>
+        forkJoin({
+          pmcData: this.pmcService.getPmc(),
           recentRidesPage: this.ridesService.listRides(0, 10),
           ftpHistory: this.ftpService.getFtpHistory(),
           appSettings: this.settingsService.getSettings(),
@@ -45,8 +41,8 @@ export class DashboardEffects {
               })
             )
           )
-        );
-      })
+        )
+      )
     )
   );
 }

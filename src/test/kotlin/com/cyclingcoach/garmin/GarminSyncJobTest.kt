@@ -1,7 +1,5 @@
 package com.cyclingcoach.garmin
 
-import com.cyclingcoach.garmin.GarminSyncJob
-import com.cyclingcoach.garmin.GarminSyncService
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.jupiter.api.Tag

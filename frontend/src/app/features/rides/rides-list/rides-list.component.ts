@@ -1,8 +1,9 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { Store } from '@ngrx/store';
 import { Router } from '@angular/router';
-import { AsyncPipe, DatePipe, DecimalPipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { MatTableModule } from '@angular/material/table';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatIconModule } from '@angular/material/icon';
 import { RidesActions } from '../+state/rides.actions';
@@ -11,11 +12,13 @@ import {
   selectRidesListLoading,
   selectRidesListError,
   selectRidesTotalElements,
+  selectRidesCurrentPage,
+  selectRidesPageSize,
 } from '../+state/rides.selectors';
 
 @Component({
   selector: 'app-rides-list',
-  imports: [DatePipe, DecimalPipe, MatTableModule, MatProgressSpinnerModule, MatIconModule],
+  imports: [DatePipe, DecimalPipe, MatTableModule, MatPaginatorModule, MatProgressSpinnerModule, MatIconModule],
   templateUrl: './rides-list.component.html',
   styleUrl: './rides-list.component.scss',
 })
@@ -27,11 +30,18 @@ export class RidesListComponent implements OnInit {
   readonly loading = this.store.selectSignal(selectRidesListLoading);
   readonly error = this.store.selectSignal(selectRidesListError);
   readonly totalElements = this.store.selectSignal(selectRidesTotalElements);
+  readonly currentPage = this.store.selectSignal(selectRidesCurrentPage);
+  readonly pageSize = this.store.selectSignal(selectRidesPageSize);
 
   readonly displayedColumns = ['date', 'name', 'distance', 'duration', 'avgPower', 'tss', 'if'];
+  readonly pageSizeOptions = [20, 50, 100];
 
   ngOnInit(): void {
-    this.store.dispatch(RidesActions.loadRides({ page: 0, size: 50 }));
+    this.store.dispatch(RidesActions.loadRides({ page: 0, size: 20 }));
+  }
+
+  onPage(event: PageEvent): void {
+    this.store.dispatch(RidesActions.loadRides({ page: event.pageIndex, size: event.pageSize }));
   }
 
   goToDetail(id: number | undefined): void {

@@ -1,8 +1,11 @@
-package com.cyclingcoach.garmin.activity
+package com.cyclingcoach.garmin.connect.activity
 
 import com.cyclingcoach.config.VIRTUAL_THREAD_EXECUTOR
 import com.cyclingcoach.garmin.GarminProperties
 import com.cyclingcoach.garmin.GarminSyncable
+import com.cyclingcoach.garmin.activity.GarminActivityInput
+import com.cyclingcoach.garmin.activity.GarminActivityService
+import com.cyclingcoach.garmin.activity.GarminActivitySyncCursorRepository
 import com.cyclingcoach.garmin.connect.client.GarminConnect
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -12,6 +15,7 @@ import kotlinx.coroutines.sync.withPermit
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
+import java.time.LocalDate
 import java.util.concurrent.CompletableFuture
 
 @Service
@@ -29,7 +33,7 @@ class GarminActivitySyncService(
     override fun sync(): CompletableFuture<Void> {
         val since =
             syncCursorRepository.findSince()
-                ?: java.time.LocalDate
+                ?: LocalDate
                     .now()
                     .minusDays(
                         garminProperties.connect.activity.initialFetchDays

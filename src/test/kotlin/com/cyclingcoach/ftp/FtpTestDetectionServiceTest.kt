@@ -18,36 +18,57 @@ import kotlin.math.roundToInt
 
 @Tag("unit")
 class FtpTestDetectionServiceTest {
-
     private val rideService: RideService = mockk()
     private val userProfileService: UserProfileService = mockk()
     private val ftpTestRepository: FtpTestRepository = mockk()
     private val eventPublisher: ApplicationEventPublisher = mockk()
 
-    private val service = FtpTestDetectionService(
-        rideService, userProfileService, ftpTestRepository, eventPublisher
-    )
+    private val service =
+        FtpTestDetectionService(
+            rideService,
+            userProfileService,
+            ftpTestRepository,
+            eventPublisher,
+        )
 
     private val date = LocalDate.parse("2026-05-08")
     private val event = RideCalculatedEvent(rideId = 1L, activityId = 10L, date = date, tss = 80.0)
 
-    private fun rampMetrics() = RideMetrics(
-        durationSeconds = 1500.0, avgPower = 150.0, variabilityIndex = 1.12,
-        bestPower1min = 320.0, bestPower5min = 270.0, bestPower10min = 240.0,
-        bestPower20min = 200.0, bestPower60min = null
-    )
+    private fun rampMetrics() =
+        RideMetrics(
+            durationSeconds = 1500.0,
+            avgPower = 150.0,
+            variabilityIndex = 1.12,
+            bestPower1min = 320.0,
+            bestPower5min = 270.0,
+            bestPower10min = 240.0,
+            bestPower20min = 200.0,
+            bestPower60min = null,
+        )
 
-    private fun twentyMinMetrics() = RideMetrics(
-        durationSeconds = 3600.0, avgPower = 190.0, variabilityIndex = 1.04,
-        bestPower1min = 350.0, bestPower5min = 280.0, bestPower10min = 265.0,
-        bestPower20min = 260.0, bestPower60min = null
-    )
+    private fun twentyMinMetrics() =
+        RideMetrics(
+            durationSeconds = 3600.0,
+            avgPower = 190.0,
+            variabilityIndex = 1.04,
+            bestPower1min = 350.0,
+            bestPower5min = 280.0,
+            bestPower10min = 265.0,
+            bestPower20min = 260.0,
+            bestPower60min = null,
+        )
 
-    private fun sixtyMinMetrics() = RideMetrics(
-        durationSeconds = 3900.0, avgPower = 240.0, variabilityIndex = 1.02,
-        bestPower1min = 320.0, bestPower5min = 270.0, bestPower10min = 255.0,
-        bestPower20min = 250.0, bestPower60min = 242.0
-    )
+    private fun sixtyMinMetrics() =
+        RideMetrics(
+            durationSeconds = 3900.0,
+            avgPower = 240.0,
+            variabilityIndex = 1.02,
+            bestPower1min = 320.0,
+            bestPower5min = 270.0,
+            bestPower10min = 255.0,
+            bestPower20min = 250.0,
+            bestPower60min = 242.0,
+        )
 
     // --- name filter ---
 
@@ -58,7 +79,7 @@ class FtpTestDetectionServiceTest {
         service.detectFtpTest(event)
 
         verify(exactly = 0) { rideService.findMetricsById(any()) }
-        verify(exactly = 0) { ftpTestRepository.save(any(), any(), any(), any()) }
+        verify(exactly = 0) { ftpTestRepository.save(any<NewFtpTest>()) }
     }
 
     @Test
@@ -125,11 +146,17 @@ class FtpTestDetectionServiceTest {
 
     @Test
     fun `returns UNKNOWN when profile does not match any type`() {
-        val ambiguousMetrics = RideMetrics(
-            durationSeconds = 1800.0, avgPower = 100.0, variabilityIndex = 1.05,
-            bestPower1min = 110.0, bestPower5min = null, bestPower10min = null,
-            bestPower20min = null, bestPower60min = null
-        )
+        val ambiguousMetrics =
+            RideMetrics(
+                durationSeconds = 1800.0,
+                avgPower = 100.0,
+                variabilityIndex = 1.05,
+                bestPower1min = 110.0,
+                bestPower5min = null,
+                bestPower10min = null,
+                bestPower20min = null,
+                bestPower60min = null,
+            )
         val type = service.classifyTestType("FTP effort", ambiguousMetrics)
         assertThat(type).isEqualTo(FtpTestType.UNKNOWN)
     }
@@ -221,12 +248,25 @@ class FtpTestDetectionServiceTest {
     // --- full event flow ---
 
     @Test
+    fun `skips detection when FTP test already exists for this ride`() {
+        every { rideService.findNameByRideId(1L) } returns "20min FTP Test"
+        every { ftpTestRepository.existsByRideId(1L) } returns true
+
+        service.detectFtpTest(event)
+
+        verify(exactly = 0) { rideService.findMetricsById(any()) }
+        verify(exactly = 0) { ftpTestRepository.save(any<NewFtpTest>()) }
+        verify(exactly = 0) { eventPublisher.publishEvent(any()) }
+    }
+
+    @Test
     fun `publishes FtpTestDetectedEvent for a valid 20min test`() {
         every { rideService.findNameByRideId(1L) } returns "20min FTP Test"
+        every { ftpTestRepository.existsByRideId(1L) } returns false
         every { rideService.findMetricsById(1L) } returns twentyMinMetrics()
-        every { userProfileService.findCurrentFtp() } returns 240.0
+        every { ftpTestRepository.findLatestBefore(any()) } returns FtpTestRow(99L, null, date.minusDays(30), 240.0, FtpTestType.TWENTY_MIN_TEST, null)
         every { userProfileService.findWeightKgAt(any()) } returns null
-        justRun { ftpTestRepository.save(any(), any(), any(), any(), any()) }
+        justRun { ftpTestRepository.save(any<NewFtpTest>()) }
         val eventSlot = slot<FtpTestDetectedEvent>()
         every { eventPublisher.publishEvent(capture(eventSlot)) } returns Unit
 
@@ -241,10 +281,11 @@ class FtpTestDetectionServiceTest {
     fun `does not publish event for UNKNOWN test type`() {
         val ambiguous = RideMetrics(1800.0, 100.0, 1.05, 110.0, null, null, null, null)
         every { rideService.findNameByRideId(1L) } returns "FTP effort"
+        every { ftpTestRepository.existsByRideId(1L) } returns false
         every { rideService.findMetricsById(1L) } returns ambiguous
-        every { userProfileService.findCurrentFtp() } returns null
+        every { ftpTestRepository.findLatestBefore(any()) } returns null
         every { userProfileService.findWeightKgAt(any()) } returns null
-        justRun { ftpTestRepository.save(any(), any(), any(), any(), any()) }
+        justRun { ftpTestRepository.save(any<NewFtpTest>()) }
 
         service.detectFtpTest(event)
 
@@ -254,10 +295,11 @@ class FtpTestDetectionServiceTest {
     @Test
     fun `publishes event with NEEDS_REVIEW when FTP change is very large`() {
         every { rideService.findNameByRideId(1L) } returns "Ramp Test"
+        every { ftpTestRepository.existsByRideId(1L) } returns false
         every { rideService.findMetricsById(1L) } returns rampMetrics()
-        every { userProfileService.findCurrentFtp() } returns 100.0 // 320×0.75=240 → +140% → NEEDS_REVIEW
+        every { ftpTestRepository.findLatestBefore(any()) } returns FtpTestRow(99L, null, date.minusDays(30), 100.0, FtpTestType.RAMP_TEST, null) // 320×0.75=240 → +140% → NEEDS_REVIEW
         every { userProfileService.findWeightKgAt(any()) } returns null
-        justRun { ftpTestRepository.save(any(), any(), any(), any(), any()) }
+        justRun { ftpTestRepository.save(any<NewFtpTest>()) }
         val eventSlot = slot<FtpTestDetectedEvent>()
         every { eventPublisher.publishEvent(capture(eventSlot)) } returns Unit
 
@@ -265,6 +307,6 @@ class FtpTestDetectionServiceTest {
 
         verify(exactly = 1) { eventPublisher.publishEvent(any<FtpTestDetectedEvent>()) }
         assertThat(eventSlot.captured.ftpValue).isEqualTo((320.0 * 0.75).roundToInt().toDouble())
-        verify(exactly = 1) { ftpTestRepository.save(any(), any(), any(), match { it?.contains("NEEDS_REVIEW") == true }, any()) }
+        verify(exactly = 1) { ftpTestRepository.save(match<NewFtpTest> { it.notes?.contains("NEEDS_REVIEW") == true }) }
     }
 }

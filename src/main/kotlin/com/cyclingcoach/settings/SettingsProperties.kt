@@ -22,9 +22,9 @@ data class SettingsProperties(
     )
 
     data class HrZoneProperties(
-        var z1Max: Int = 68,
-        var z2Max: Int = 83,
-        var z3Max: Int = 94,
-        var z4Max: Int = 105,
+        var z1Max: Int = 60,
+        var z2Max: Int = 72,
+        var z3Max: Int = 82,
+        var z4Max: Int = 92,
     )
 }

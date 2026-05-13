@@ -7,20 +7,35 @@
 
   <div class="rides-list">
     @for (ride of rides(); track ride.id) {
-      <div class="ride-row">
+      <div class="ride-row" [routerLink]="['/rides', ride.id]">
         <div class="ride-main">
           <div class="ride-name">{{ ride.name || 'Unnamed ride' }}</div>
           <div class="ride-meta">
             {{ ride.date | date: 'MMM d, y' }} &bull;
             {{ formatDuration(ride.durationSeconds) }} &bull;
             {{ (ride.distanceKm ?? 0) | number: '1.1-1' }} km
+            @if (ride.avgSpeedKmh) {
+              &bull; {{ ride.avgSpeedKmh | number: '1.1-1' }} km/h
+            }
           </div>
         </div>
         <div class="ride-stats">
+          @if (ride.distanceKm) {
+            <div class="stat">
+              <span class="stat-label">Dist</span>
+              <span class="stat-value">{{ ride.distanceKm | number: '1.1-1' }} km</span>
+            </div>
+          }
+          @if (ride.avgSpeedKmh) {
+            <div class="stat">
+              <span class="stat-label">Speed</span>
+              <span class="stat-value">{{ ride.avgSpeedKmh | number: '1.1-1' }} km/h</span>
+            </div>
+          }
           @if (ride.normalizedPowerW) {
             <div class="stat">
               <span class="stat-label">NP</span>
-              <span class="stat-value">{{ ride.normalizedPowerW }}W</span>
+              <span class="stat-value">{{ ride.normalizedPowerW | number:'1.0-0' }}W</span>
             </div>
           }
           @if (ride.tss) {

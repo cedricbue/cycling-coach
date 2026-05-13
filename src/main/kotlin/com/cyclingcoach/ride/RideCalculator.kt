@@ -31,4 +31,3 @@ object RideCalculator {
         return np / avgHr
     }
 }
-

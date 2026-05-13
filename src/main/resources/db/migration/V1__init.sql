@@ -1,30 +1,24 @@
 -- V1__init.sql
--- Initial schema for cycling coach application
+-- Consolidated initial schema for cycling coach application
 
-CREATE TABLE activity
+CREATE TABLE garmin_activity
 (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     external_id TEXT UNIQUE NOT NULL, -- Garmin activity ID, used for dedup
     raw_tcx     TEXT        NOT NULL, -- source of truth; used for grade/altitude data
-    raw_json    TEXT                  -- full Garmin Connect activity JSON; used for pre-calculated metrics
-);
-
-CREATE TABLE bike
-(
-    id        INTEGER PRIMARY KEY AUTOINCREMENT,
-    name      TEXT    NOT NULL,
-    is_active INTEGER NOT NULL DEFAULT 1
+    raw_json    TEXT,                  -- full Garmin Connect activity JSON; used for pre-calculated metrics
+    imported_at TEXT        NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE ride
 (
     id                INTEGER PRIMARY KEY AUTOINCREMENT,
-    activity_id       INTEGER,          -- no UNIQUE: same external_id may get a new activity_id after reimport
-    external_id       TEXT UNIQUE NOT NULL,  -- Garmin activity ID, sole dedup key for ride
-    date              TEXT NOT NULL,
-    name              TEXT,             -- activity name from Garmin JSON
-    start_time        TEXT,             -- GMT start time from Garmin JSON
-    manufacturer      TEXT,             -- device/app manufacturer (e.g. ZWIFT, WAHOO)
+    activity_id       INTEGER,              -- no UNIQUE: same external_id may get a new activity_id after reimport
+    external_id       TEXT UNIQUE NOT NULL, -- Garmin activity ID, sole dedup key for ride
+    date              TEXT        NOT NULL,
+    name              TEXT,                 -- activity name from Garmin JSON
+    start_time        TEXT,                 -- GMT start time from Garmin JSON
+    manufacturer      TEXT,                 -- device/app manufacturer (e.g. ZWIFT, WAHOO)
     distance          REAL,
     elevation_gain    REAL,
     elevation_descent REAL,
@@ -53,19 +47,17 @@ CREATE TABLE ride
     max_speed_mps     REAL,
     variability_index REAL,
     efficiency_factor REAL,
-    bike_id           INTEGER REFERENCES bike (id),
     rpe               INTEGER CHECK (rpe BETWEEN 1 AND 10),
     coach_summary     TEXT,
     notes             TEXT,
-    FOREIGN KEY (activity_id) REFERENCES activity (id)
+    FOREIGN KEY (activity_id) REFERENCES garmin_activity (id)
 );
 
 CREATE TABLE user_profile
 (
-    id                INTEGER PRIMARY KEY CHECK (id = 1),
-    current_ftp       REAL,
-    current_weight_kg REAL,
-    updated_at        TEXT NOT NULL DEFAULT (datetime('now'))
+    id         INTEGER PRIMARY KEY CHECK (id = 1),
+    max_hr     INTEGER,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE user_weight
@@ -82,70 +74,11 @@ CREATE TABLE ftp_test
     ftp_value REAL NOT NULL,
     test_type TEXT CHECK (test_type IN ('RAMP_TEST', 'TWENTY_MIN_TEST', 'SIXTY_MIN_TEST', 'UNKNOWN', 'ESTIMATED')),
     weight_kg REAL,
-    notes     TEXT
+    notes     TEXT,
+    ride_id   INTEGER REFERENCES ride (id)
 );
 
-CREATE TABLE goal_event
-(
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    name        TEXT NOT NULL,
-    event_date  TEXT NOT NULL,
-    event_type  TEXT NOT NULL, -- GRAN_FONDO | RACE | SPORTIVE
-    distance_km REAL,
-    elevation_m REAL,
-    notes       TEXT,
-    status      TEXT NOT NULL DEFAULT 'ACTIVE'
-);
-
-CREATE TABLE training_plan
-(
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    goal_event_id INTEGER NOT NULL REFERENCES goal_event (id),
-    generated_at  TEXT    NOT NULL DEFAULT (datetime('now')),
-    summary       TEXT,
-    status        TEXT    NOT NULL DEFAULT 'ACTIVE'
-);
-
-CREATE TABLE training_week
-(
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    plan_id     INTEGER NOT NULL REFERENCES training_plan (id),
-    week_number INTEGER NOT NULL,
-    start_date  TEXT    NOT NULL,
-    phase       TEXT    NOT NULL, -- BASE | BUILD | PEAK | TAPER
-    target_tss  REAL,
-    notes       TEXT
-);
-
-CREATE TABLE planned_workout
-(
-    id                      INTEGER PRIMARY KEY AUTOINCREMENT,
-    week_id                 INTEGER NOT NULL REFERENCES training_week (id),
-    scheduled_date          TEXT    NOT NULL,
-    name                    TEXT    NOT NULL,
-    workout_type            TEXT    NOT NULL,
-    target_duration_seconds INTEGER,
-    target_tss              REAL,
-    workout_blocks          TEXT    NOT NULL DEFAULT '[]', -- JSON array of interval blocks
-    completed_ride_id       INTEGER REFERENCES ride (id)
-);
-
-CREATE TABLE nutrition_plan
-(
-    id                        INTEGER PRIMARY KEY AUTOINCREMENT,
-    ride_id                   INTEGER REFERENCES ride (id),
-    planned_workout_id        INTEGER REFERENCES planned_workout (id),
-    target_carbs_per_hour_g   REAL,
-    target_fluids_ml_per_hour REAL,
-    pre_ride                  TEXT,
-    during_ride               TEXT,
-    post_ride                 TEXT,
-    generated_at              TEXT NOT NULL DEFAULT (datetime('now')),
-    CHECK (
-        (ride_id IS NOT NULL AND planned_workout_id IS NULL) OR
-        (ride_id IS NULL AND planned_workout_id IS NOT NULL)
-        )
-);
+CREATE UNIQUE INDEX uq_ftp_test_ride_id ON ftp_test (ride_id) WHERE ride_id IS NOT NULL;
 
 -- DI OAuth2 tokens from Garmin authentication; credentials are never persisted
 CREATE TABLE garmin_token
@@ -170,13 +103,26 @@ CREATE TABLE training_load
     tsb  REAL NOT NULL DEFAULT 0  -- CTL_prev - ATL_prev (form)
 );
 
--- Tracks the since-date used by the last fully-completed Garmin sync.
--- Absent row = first run; GarminSyncService falls back to now() - initialFetchDays.
--- Only written after the sync loop exits without error, so an aborted sync never
--- advances the cursor past un-fetched older activities.
-CREATE TABLE garmin_sync_cursor
+-- Tracks the since-date of the last fully-completed Garmin activity sync
+CREATE TABLE garmin_activity_sync_cursor
 (
     id    INTEGER PRIMARY KEY CHECK (id = 1),
+    since TEXT NOT NULL
+);
+
+-- Raw weight measurements imported from Garmin Connect
+CREATE TABLE garmin_weight
+(
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    external_id TEXT NOT NULL UNIQUE,
+    raw_json    TEXT NOT NULL,
+    imported_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Dedicated sync cursor for Garmin weight (external_id is numeric samplePk, not a date)
+CREATE TABLE garmin_weight_sync_cursor
+(
+    id    INTEGER PRIMARY KEY,
     since TEXT NOT NULL
 );
 

@@ -24,7 +24,6 @@ import org.springframework.test.context.DynamicPropertySource
 @SpringBootTest
 @ActiveProfiles("test")
 abstract class AbstractGarminConnectTest {
-
     @Autowired
     lateinit var garminConnect: GarminConnect
 

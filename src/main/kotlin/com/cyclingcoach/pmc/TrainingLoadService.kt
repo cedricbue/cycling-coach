@@ -1,20 +1,27 @@
 package com.cyclingcoach.pmc
 
-import com.cyclingcoach.config.VIRTUAL_THREAD_EXECUTOR
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.LocalDate
 
 @Service
-class TrainingLoadService(private val repository: TrainingLoadRepository) {
-
+class TrainingLoadService(
+    private val repository: TrainingLoadRepository,
+) {
     private val log = LoggerFactory.getLogger(javaClass)
+
+    fun ensureUpToDate() {
+        val latest = repository.findLatestDate() ?: return
+        val tomorrow = latest.plusDays(1)
+        if (!tomorrow.isAfter(LocalDate.now())) {
+            recalculateFrom(tomorrow)
+        }
+    }
 
     fun recalculateFrom(startDate: LocalDate) {
         val prior = repository.findByDate(startDate.minusDays(1))
         var ctl = prior?.ctl ?: 0.0
         var atl = prior?.atl ?: 0.0
-
         val dailyTss = repository.findDailyTssSince(startDate)
         val today = LocalDate.now()
 
@@ -39,7 +46,8 @@ class TrainingLoadService(private val repository: TrainingLoadRepository) {
 
         log.info(
             "Training load recalculated from {} to {}: CTL={} ATL={} TSB={}",
-            startDate, today,
+            startDate,
+            today,
             "%.2f".format(ctl),
             "%.2f".format(atl),
             "%.2f".format(ctl - atl),

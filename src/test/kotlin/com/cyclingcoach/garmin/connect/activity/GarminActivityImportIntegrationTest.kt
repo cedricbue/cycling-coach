@@ -2,7 +2,6 @@ package com.cyclingcoach.garmin.connect.activity
 
 import com.cyclingcoach.AbstractApplicationIntegrationTest
 import com.cyclingcoach.garmin.activity.GarminActivityStoredEvent
-import com.cyclingcoach.garmin.activity.GarminActivitySyncService
 import com.cyclingcoach.garmin.connect.client.GarminConnect
 import com.cyclingcoach.generated.jooq.tables.references.GARMIN_ACTIVITY
 import com.cyclingcoach.ride.RideCalculatedEvent
@@ -23,7 +22,6 @@ import java.time.Duration
 @Tag("integration")
 @RecordApplicationEvents
 class GarminActivityImportIntegrationTest : AbstractApplicationIntegrationTest() {
-
     @Autowired
     private lateinit var garminConnect: GarminConnect
 
@@ -37,13 +35,15 @@ class GarminActivityImportIntegrationTest : AbstractApplicationIntegrationTest()
     private val activityId = 22801381040L
 
     private val activityJson: String by lazy {
-        javaClass.getResourceAsStream("/fixtures/garmin/activity_22801381040.json")!!
+        javaClass
+            .getResourceAsStream("/fixtures/garmin/activity_22801381040.json")!!
             .bufferedReader()
             .readText()
     }
 
     private val activityTcx: String by lazy {
-        javaClass.getResourceAsStream("/fixtures/garmin/activity_22801381040.tcx")!!
+        javaClass
+            .getResourceAsStream("/fixtures/garmin/activity_22801381040.tcx")!!
             .bufferedReader()
             .readText()
     }
@@ -60,11 +60,12 @@ class GarminActivityImportIntegrationTest : AbstractApplicationIntegrationTest()
         garminActivitySyncService.sync().get()
 
         val row =
-            dsl.select(
-                GARMIN_ACTIVITY.EXTERNAL_ID,
-                GARMIN_ACTIVITY.RAW_JSON,
-                GARMIN_ACTIVITY.RAW_TCX,
-            ).from(GARMIN_ACTIVITY)
+            dsl
+                .select(
+                    GARMIN_ACTIVITY.EXTERNAL_ID,
+                    GARMIN_ACTIVITY.RAW_JSON,
+                    GARMIN_ACTIVITY.RAW_TCX,
+                ).from(GARMIN_ACTIVITY)
                 .where(GARMIN_ACTIVITY.EXTERNAL_ID.eq(activityId.toString()))
                 .fetchOne()
 
@@ -124,4 +125,3 @@ class GarminActivityImportIntegrationTest : AbstractApplicationIntegrationTest()
         )
     }
 }
-

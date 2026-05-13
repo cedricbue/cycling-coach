@@ -9,7 +9,5 @@ import org.springframework.web.bind.annotation.RestController
 class SettingsController(
     private val settingsService: SettingsService,
 ) : SettingsApi {
-
-    override fun getSettings(): ResponseEntity<AppSettings> =
-        ResponseEntity.ok(settingsService.getAppSettings())
+    override fun getSettings(): ResponseEntity<AppSettings> = ResponseEntity.ok(settingsService.getAppSettings())
 }

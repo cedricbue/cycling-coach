@@ -14,19 +14,22 @@ export const selectPowerZones = createSelector(
   (s) => s.appSettings?.powerZones ?? null
 );
 
-export const selectFtpHistory = createSelector(
+export const selectCurrentFtp = createSelector(
   selectSettingsState,
-  (s) => [...s.ftpHistory].sort((a, b) =>
-    (b.date ?? '').localeCompare(a.date ?? '')
-  )
+  (s) => s.appSettings?.currentFtp ?? null
+);
+
+export const selectHrZones = createSelector(
+  selectSettingsState,
+  (s) => s.appSettings?.hrZones ?? null
+);
+
+export const selectMaxHr = createSelector(
+  selectSettingsState,
+  (s) => s.appSettings?.maxHrBpm ?? null
 );
 
 export const selectSettingsLoading = createSelector(
   selectSettingsState,
   (s) => s.loading
-);
-
-export const selectCurrentFtp = createSelector(
-  selectFtpHistory,
-  (history) => (history.length > 0 ? history[0].ftpValue ?? null : null)
 );

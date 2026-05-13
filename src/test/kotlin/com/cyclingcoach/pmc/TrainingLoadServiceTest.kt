@@ -2,8 +2,8 @@ package com.cyclingcoach.pmc
 
 import io.mockk.every
 import io.mockk.justRun
-import io.mockk.slot
 import io.mockk.mockk
+import io.mockk.slot
 import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.data.Offset
@@ -13,7 +13,6 @@ import java.time.LocalDate
 
 @Tag("unit")
 class TrainingLoadServiceTest {
-
     private val repository: TrainingLoadRepository = mockk()
     private val service = TrainingLoadService(repository)
 

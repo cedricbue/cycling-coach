@@ -1,7 +1,7 @@
 package com.cyclingcoach.ride
 
 import com.cyclingcoach.config.VIRTUAL_THREAD_EXECUTOR
-import com.cyclingcoach.ftp.FtpEstimationService
+import com.cyclingcoach.ftp.FtpTestRepository
 import com.cyclingcoach.garmin.activity.GarminActivityService
 import com.cyclingcoach.garmin.connect.client.GarminActivity
 import com.cyclingcoach.user.UserProfileService
@@ -17,7 +17,7 @@ class RideComputeService(
     private val garminActivityService: GarminActivityService,
     private val rideRepository: RideRepository,
     private val userProfileService: UserProfileService,
-    private val ftpEstimationService: FtpEstimationService,
+    private val ftpTestRepository: FtpTestRepository,
     private val eventPublisher: ApplicationEventPublisher,
     private val objectMapper: ObjectMapper,
 ) {
@@ -32,6 +32,7 @@ class RideComputeService(
     fun compute(
         activityId: Long,
         eventDate: LocalDate?,
+        publishEvent: Boolean = true,
     ) {
         val garminJson =
             garminActivityService.findRawJsonById(activityId)?.let { json ->
@@ -46,7 +47,11 @@ class RideComputeService(
         }
 
         if (!garminJson.isRide()) {
-            log.debug("Activity {} is not a cycling activity (type={}) — skipping", activityId, garminJson.activityType?.typeKey)
+            log.debug(
+                "Activity {} is not a cycling activity (type={}) — skipping",
+                activityId,
+                garminJson.activityType?.typeKey,
+            )
             return
         }
 
@@ -62,8 +67,17 @@ class RideComputeService(
 
         val np = garminJson.normPower
         val intensityFactor = if (np != null && ftp != null) RideCalculator.calculateIntensityFactor(np, ftp) else null
-        val tss = if (np != null && ftp != null) RideCalculator.calculateTss(garminJson.duration ?: 0.0, np, ftp) else null
-        val vi = if (np != null && garminJson.avgPower != null) RideCalculator.calculateVariabilityIndex(np, garminJson.avgPower) else null
+        val tss =
+            if (np != null && ftp != null) RideCalculator.calculateTss(garminJson.duration ?: 0.0, np, ftp) else null
+        val vi =
+            if (np != null && garminJson.avgPower != null) {
+                RideCalculator.calculateVariabilityIndex(
+                    np,
+                    garminJson.avgPower,
+                )
+            } else {
+                null
+            }
         val ef = if (np != null) RideCalculator.calculateEfficiencyFactor(np, garminJson.averageHR) else null
         val wattsPerKg = if (np != null && weightKg != null) np / weightKg else null
 
@@ -114,15 +128,12 @@ class RideComputeService(
             np?.let { "%.1f".format(it) },
             tss?.let { "%.1f".format(it) },
         )
-        eventPublisher.publishEvent(RideCalculatedEvent(rideId, activityId, date, tss ?: 0.0))
+        if (publishEvent) {
+            eventPublisher.publishEvent(RideCalculatedEvent(rideId, activityId, date, tss ?: 0.0))
+        }
     }
 
-    private fun resolveRideFtp(rideDate: LocalDate): Double? {
-        val profileFtp = userProfileService.findCurrentFtp()
-        if (profileFtp != null) return profileFtp
-        val samples = rideRepository.findPowerSamplesBefore(rideDate)
-        return ftpEstimationService.estimate(samples)
-    }
+    private fun resolveRideFtp(rideDate: LocalDate): Double? = ftpTestRepository.findEffectiveAt(rideDate)
 
     private fun parseGmtDate(startTimeGmt: String): LocalDate? = runCatching { LocalDate.parse(startTimeGmt.take(10)) }.getOrNull()
 }
