@@ -92,15 +92,15 @@ com.cyclingcoach
 │   │                                # rideRepository.save() (COALESCE-protected upsert);
 │   │                                # publishes RideCalculatedEvent (publishEvent param controls this)
 │   ├── RideCalculator.kt           # pure functions: NP, bestPower, TSS, IF, VI, EF
-│   ├── RideReadService.kt          # query side
-│   ├── RideRepository.kt           # jOOQ upsert with COALESCE for FTP-dependent fields
+│   ├── RideRepository.kt           # jOOQ upsert with COALESCE for FTP-dependent fields;
+│   │                                # findRidePage / findRideDetail for API reads
 │   ├── RideInput.kt
 │   ├── RideEventListener.kt        # @Async on GarminActivityStoredEvent → compute
-│   │                                # @EventListener(ApplicationReadyEvent) → reconcile orphans + null-TSS
-│   ├── RideCalculatedEvent.kt      # rideId, activityId, date, tss
-│   ├── FtpChangeListener.kt        # @EventListener(FtpTestDetectedEvent) → batch recompute from
-│   │                                # prevTestDate onward (synchronous, publishEvent=false),
+│   │                                # @EventListener(ApplicationReadyEvent) → reconcile orphans + null-TSS rides
+│   │                                # @Async on FtpTestDetectedEvent → batch recompute from
+│   │                                # prevTestDate onward (publishEvent=false),
 │   │                                # then publishes FtpBackfillCompleteEvent(fromDate)
+│   ├── RideCalculatedEvent.kt
 │   ├── ActivityFileParser.kt       # interface
 │   └── TcxActivityFileParser.kt    # @Component adapter wrapping tcx.TcxParser
 │
@@ -119,7 +119,7 @@ com.cyclingcoach
 │   ├── FtpEstimationService.kt     # CP model + weighted fallbacks — NOT in compute path (kept for reference)
 │   ├── FtpTestType.kt              # RAMP_TEST | TWENTY_MIN_TEST | SIXTY_MIN_TEST | UNKNOWN | ESTIMATED
 │   ├── FtpTestDetectedEvent.kt
-│   ├── FtpBackfillCompleteEvent.kt # emitted by FtpChangeListener after batch recompute
+│   ├── FtpBackfillCompleteEvent.kt # emitted by RideEventListener after batch recompute
 │   └── RidePowerSample.kt
 │
 ├── tcx/                     # Framework-agnostic TCX parser (no Spring)
@@ -181,11 +181,11 @@ integration events. The Garmin package publishes them; the application packages 
                     │              classify type, calculate FTP, validate bounds + delta
                     │              ftpTestRepository.save()
                     │              publishes FtpTestDetectedEvent
-                    │                 └─ FtpChangeListener.onFtpTestDetected  (sync)
+                    │                 └─ RideEventListener.onFtpTestDetected  (@Async)
                     │                      - prevTest = findLatestBefore(D)
                     │                      - fromDate = prevTest?.date ?: D
                     │                      - rideService.recomputeRidesFrom(fromDate)
-                    │                          (synchronous loop; publishEvent=false
+                    │                          (sequential loop; publishEvent=false
                     │                           to avoid N concurrent PMC triggers)
                     │                      - publishes FtpBackfillCompleteEvent(fromDate)
                     │                          └─ TrainingLoadEventListener.onFtpBackfillComplete  (@Async)
@@ -199,11 +199,7 @@ integration events. The Garmin package publishes them; the application packages 
           └─ UserProfileService.storeWeightMeasurements(entries) → user_weight upserts
 ```
 
-**Why two FTP events:** `FtpTestDetectedEvent` is fired by the detection service inside
-the compute thread and is consumed synchronously by `FtpChangeListener` to do the batch
-recompute. `FtpChangeListener` then emits `FtpBackfillCompleteEvent` so the PMC recalc
-is decoupled from the `ride` package (no `ride → pmc` import) and runs once per backfill,
-not once per ride.
+**Why two FTP events:** `FtpTestDetectedEvent` is fired by the detection service inside the compute thread and is consumed (@Async) by `RideEventListener.onFtpTestDetected` to do the batch recompute. After the batch, it emits `FtpBackfillCompleteEvent` so the PMC recalc is decoupled from the ride package (no `ride → pmc` import) and runs once per backfill, not N times.
 
 ---
 
@@ -324,9 +320,8 @@ During the initial Garmin sync all activities are stored sequentially but
 
 1. All compute threads start before any FTP test is saved → all rides get null TSS.
 2. The FTP test ride's compute eventually detects the test and saves it.
-3. `FtpChangeListener` runs the backfill → assigns TSS to rides in range.
-4. **Race**: a thread that started before the FTP test was saved finishes after the
-   backfill and calls `save()` with `tss=null`. Without protection this clobbers the backfill.
+3. `RideEventListener.onFtpTestDetected` runs the backfill → assigns TSS to all rides in range.
+4. **Race**: a parallel compute thread that started before the FTP test was saved finishes after the backfill, calling `save()` with `tss=null`. Without protection, this would clobber the backfill.
 
 **Two layers of defense:**
 

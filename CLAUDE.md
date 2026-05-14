@@ -59,10 +59,10 @@ Currently implemented packages:
 ```
 config/             — Spring async (virtual thread executor), Garmin client wiring, web config.
 ride/               — Raw activity ingestion + computed cycling metrics (NP, IF, TSS, best powers).
-                      RideComputeService computes; RideService orchestrates; RideReadService reads.
-                      RideEventListener drives compute on GarminActivityStoredEvent; emits
-                      RideCalculatedEvent. FtpChangeListener handles FtpTestDetectedEvent → batch
-                      recompute. Includes ActivityFileParser / TcxActivityFileParser (TCX → RideInput).
+                      RideComputeService computes; RideService orchestrates and serves API reads.
+                      RideEventListener (@Async) handles GarminActivityStoredEvent → compute,
+                      ApplicationReadyEvent → reconcile, and FtpTestDetectedEvent → batch recompute.
+                      Includes ActivityFileParser / TcxActivityFileParser (TCX → RideInput).
 pmc/                — Training load chain: CTL/ATL/TSB per calendar day. TrainingLoadEventListener
                       recalculates forward from earliest affected date on RideCalculatedEvent
                       and FtpBackfillCompleteEvent. PmcController calls ensureUpToDate() lazily
@@ -112,21 +112,21 @@ GarminSyncJob → GarminSyncService → GarminActivityService.storeAll
               → FtpEventListener → FtpTestDetectionService.detectFtpTest
                   - if ride is named "ftp"/"ramp test"/etc. AND no ftp_test row exists for this rideId:
                     classify type, calculate FTP, validate, save → publish FtpTestDetectedEvent
-                      → FtpChangeListener → recomputeRidesFrom(prevTestDate or event.date)
-                          (synchronous; publishEvent=false to avoid N concurrent PMC triggers)
+                      → RideEventListener (@Async) → recomputeRidesFrom(prevTestDate or event.date)
+                          (publishEvent=false to avoid N concurrent PMC triggers)
                           → publishes FtpBackfillCompleteEvent(fromDate)
                               → TrainingLoadEventListener (@Async) → recalculateFrom(fromDate)
               → UserProfileEventListener (@Async) → updates max_hr if ride's max_hr is higher
 ```
 
-Reads go through `RideReadService` and `pmc/` queries.
+Reads go through `RideService` and `pmc/` queries.
 
 ### Key Domain Rules
 
 - **garmin_activity** stores the raw Garmin Connect activity (JSON + TCX). **ride** holds all computed metrics derived from it — NP, IF, TSS, best power intervals, watts/kg, FTP-at-ride-date.
 - **FTP authority**: `ftp_test` is the sole source of truth for FTP. `FtpTestRepository.findEffectiveAt(date)` returns the FTP value from the latest test with `date ≤ rideDate`, or null. The `user_profile` table no longer caches `current_ftp`.
 - **Point-in-time FTP**: rides use the FTP in effect at their date. If no FTP test exists on or before the ride date, IF/TSS/W·kg stay null (no estimation in the compute path).
-- **FTP backfill on detection**: when a new FTP test is detected at date `D`, `FtpChangeListener` recomputes all rides from `prevTestDate` (or `D` if no previous test) through today — using `publishEvent=false` to suppress per-ride PMC triggers — then publishes one `FtpBackfillCompleteEvent` so PMC recalculates once from the earliest affected date.
+- **FTP backfill on detection**: when a new FTP test is detected at date `D`, `RideEventListener.onFtpTestDetected` (@Async) recomputes all rides from `prevTestDate` (or `D` if no previous test) through today — using `publishEvent=false` to suppress per-ride PMC triggers — then publishes one `FtpBackfillCompleteEvent` so PMC recalculates once from the earliest affected date.
 - **Race-condition safe upsert**: during parallel sync, `RideRepository.save()` uses `COALESCE(excluded.X, ride.X)` for FTP-dependent fields (`tss`, `ftp`, `intensity_factor`, `watts_per_kg`). A concurrent compute thread arriving late with `tss=null` cannot overwrite a value that the backfill already set.
 - **Null-TSS reconciliation on startup**: `RideEventListener.onApplicationReady()` calls `reconcileOrphanedActivities()` (activities without a ride row) and `reconcileRidesWithNullTss()` (rides with NP but no TSS) — re-runs them through the current point-in-time FTP lookup.
 - **TrainingLoad** is a running EWMA chain (CTL = 42d, ATL = 7d). After any sync, recalculate forward from the earliest affected date — it cannot be derived from a single row.
