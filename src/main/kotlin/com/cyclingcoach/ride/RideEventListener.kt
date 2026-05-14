@@ -32,6 +32,7 @@ internal class RideEventListener(
         rideService.reconcileRidesWithNullTss()
     }
 
+    @Async(VIRTUAL_THREAD_EXECUTOR)
     @EventListener
     fun onFtpTestDetected(event: FtpTestDetectedEvent) {
         val prevTest = ftpTestRepository.findLatestBefore(event.date)
