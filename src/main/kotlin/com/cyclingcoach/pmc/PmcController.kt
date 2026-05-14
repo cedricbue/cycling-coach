@@ -7,20 +7,11 @@ import org.springframework.web.bind.annotation.RestController
 import java.time.LocalDate
 
 @RestController
-class PmcController(
-    private val repository: TrainingLoadRepository,
-    private val trainingLoadService: TrainingLoadService,
+internal class PmcController(
+    private val pmcService: PmcService,
 ) : PmcApi {
     override fun getPmc(
         from: LocalDate?,
         to: LocalDate?,
-    ): ResponseEntity<List<PmcDataPoint>> {
-        trainingLoadService.ensureUpToDate()
-        val rows = repository.findBetween(from, to)
-        val result =
-            rows.map {
-                PmcDataPoint(date = it.date, tss = it.tss, ctl = it.ctl, atl = it.atl, tsb = it.tsb)
-            }
-        return ResponseEntity.ok(result)
-    }
+    ): ResponseEntity<List<PmcDataPoint>> = ResponseEntity.ok(pmcService.getPmc(from, to))
 }
