@@ -6,23 +6,28 @@ import java.time.LocalDate
 
 @Service
 class TrainingLoadService(
-    private val repository: TrainingLoadRepository,
+    private val trainingLoadRepository: TrainingLoadRepository,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
     fun ensureUpToDate() {
-        val latest = repository.findLatestDate() ?: return
+        val latest = trainingLoadRepository.findLatestDate() ?: return
         val tomorrow = latest.plusDays(1)
         if (!tomorrow.isAfter(LocalDate.now())) {
             recalculateFrom(tomorrow)
         }
     }
 
+    fun findBetween(
+        from: LocalDate?,
+        to: LocalDate?,
+    ): List<TrainingLoadRow> = trainingLoadRepository.findBetween(from, to)
+
     fun recalculateFrom(startDate: LocalDate) {
-        val prior = repository.findByDate(startDate.minusDays(1))
+        val prior = trainingLoadRepository.findByDate(startDate.minusDays(1))
         var ctl = prior?.ctl ?: 0.0
         var atl = prior?.atl ?: 0.0
-        val dailyTss = repository.findDailyTssSince(startDate)
+        val dailyTss = trainingLoadRepository.findDailyTssSince(startDate)
         val today = LocalDate.now()
 
         if (dailyTss.isEmpty()) {
@@ -38,7 +43,7 @@ class TrainingLoadService(
             val tsb = ctl - atl
             val newCtl = ctl * (1 - alphaCtl) + tss * alphaCtl
             val newAtl = atl * (1 - alphaAtl) + tss * alphaAtl
-            repository.upsert(current, tss, newCtl, newAtl, tsb)
+            trainingLoadRepository.upsert(current, tss, newCtl, newAtl, tsb)
             ctl = newCtl
             atl = newAtl
             current = current.plusDays(1)

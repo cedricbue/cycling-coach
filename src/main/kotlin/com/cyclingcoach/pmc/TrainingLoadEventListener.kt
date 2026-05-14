@@ -8,7 +8,7 @@ import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Component
 
 @Component
-class TrainingLoadEventListener(
+internal class TrainingLoadEventListener(
     private val trainingLoadService: TrainingLoadService,
 ) {
     @Async(VIRTUAL_THREAD_EXECUTOR)

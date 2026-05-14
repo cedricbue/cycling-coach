@@ -12,7 +12,6 @@ A single number representing the **load of one workout**, combining intensity an
 
 ```
 TSS = (duration_seconds × NP × IF) / (FTP × 3600) × 100 
-= (duration_hours × IF²) × 100
 ```
 
 | Variable | Meaning |
