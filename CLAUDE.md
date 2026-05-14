@@ -193,6 +193,8 @@ Spring AI with Ollama and Anthropic as **switchable providers** (not a fallback 
 
 `feat/<short-kebab-description>` — e.g., `feat/power-zone-dashboard`
 
+All PRs target `main`.
+
 ## Cycling Domain Changes
 
 Any change to cycling business logic — NP/IF/TSS formulas, CTL/ATL/TSB EWMA constants, FTP detection, power zone thresholds, HR zone thresholds, training load recalculation rules, or any other metric derivation — **must be reviewed by the road-cycling-coach agent before implementation**. Invoke it via the `road-cycling-coach` subagent type and describe the proposed change. Do not commit cycling metric logic changes without this review.
