@@ -21,7 +21,6 @@
     <properties>
         <java.version>25</java.version>
         <kotlin.version>2.3.21</kotlin.version>
-        <mapstruct.version>1.6.3</mapstruct.version>
         <jooq.version>3.19.32</jooq.version>
         <sqlite.version>3.47.0.0</sqlite.version>
         <mockk.version>1.13.17</mockk.version>
@@ -74,13 +73,6 @@
         <dependency>
             <groupId>tools.jackson.dataformat</groupId>
             <artifactId>jackson-dataformat-xml</artifactId>
-        </dependency>
-
-        <!-- MapStruct -->
-        <dependency>
-            <groupId>org.mapstruct</groupId>
-            <artifactId>mapstruct</artifactId>
-            <version>${mapstruct.version}</version>
         </dependency>
 
         <!-- Kotlin -->
@@ -187,13 +179,6 @@
                                 <sourceDir>${project.basedir}/src/main/kotlin</sourceDir>
                                 <sourceDir>${project.build.directory}/generated-sources/openapi/src/main/kotlin</sourceDir>
                             </sourceDirs>
-                            <annotationProcessorPaths>
-                                <annotationProcessorPath>
-                                    <groupId>org.mapstruct</groupId>
-                                    <artifactId>mapstruct-processor</artifactId>
-                                    <version>${mapstruct.version}</version>
-                                </annotationProcessorPath>
-                            </annotationProcessorPaths>
                         </configuration>
                     </execution>
                     <execution>
