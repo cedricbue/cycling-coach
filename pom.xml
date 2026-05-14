@@ -278,6 +278,7 @@
                             <inputSpec>${project.basedir}/src/main/resources/api-spec/cycling-coach-api.yaml</inputSpec>
                             <generatorName>typescript-angular</generatorName>
                             <output>${project.basedir}/frontend/src/app/core/api</output>
+                            <addCompileSourceRoot>false</addCompileSourceRoot>
                             <configOptions>
                                 <ngVersion>21</ngVersion>
                                 <providedInRoot>true</providedInRoot>
