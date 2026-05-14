@@ -65,7 +65,13 @@ export class PmcChartComponent implements AfterViewInit, OnDestroy {
   readonly filteredData = computed(() => {
     const points = this.data();
     const range = this.selectedRange();
-    if (range === 'all' || points.length === 0) return points;
+    if (points.length === 0) return points;
+    if (range === 'all') {
+      const firstMeaningful = points.findIndex(
+        (p) => (p.ctl ?? 0) > 0 || (p.atl ?? 0) > 0,
+      );
+      return firstMeaningful > 0 ? points.slice(firstMeaningful) : points;
+    }
 
     const days = range === '90d' ? 90 : range === '6m' ? 182 : 365;
     const cutoff = new Date();
