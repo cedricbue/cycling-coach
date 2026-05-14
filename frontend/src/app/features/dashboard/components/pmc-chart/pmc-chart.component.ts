@@ -50,9 +50,9 @@ const RANGES: { label: string; value: Range }[] = [
             }
           </div>
           <div class="legend">
-            <span class="legend-dot" style="background:#3f51b5"></span>CTL
-            <span class="legend-dot" style="background:#ff9800"></span>ATL
-            <span class="legend-dot" style="background:#4caf50"></span>TSB
+            <span class="legend-dot" style="background:#3f51b5"></span>CTL — Fitness
+            <span class="legend-dot" style="background:#ff9800"></span>ATL — Fatigue
+            <span class="legend-dot" style="background:#4caf50"></span>TSB — Form
           </div>
         </div>
       </div>
