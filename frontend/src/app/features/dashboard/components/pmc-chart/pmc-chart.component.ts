@@ -18,13 +18,18 @@ const ACCENT_BLUE = '#3f51b5';
 const ACCENT_ORANGE = '#ff9800';
 const ACCENT_GREEN = '#4caf50';
 
-type Range = '90d' | '6m' | '1y' | 'all';
+const RANGE_90D = '90d' as const;
+const RANGE_6M = '6m' as const;
+const RANGE_1Y = '1y' as const;
+const RANGE_ALL = 'all' as const;
+
+type Range = typeof RANGE_90D | typeof RANGE_6M | typeof RANGE_1Y | typeof RANGE_ALL;
 
 const RANGES: { label: string; value: Range }[] = [
-  { label: '90d', value: '90d' },
-  { label: '6m', value: '6m' },
-  { label: '1y', value: '1y' },
-  { label: 'All', value: 'all' },
+  { label: '90d', value: RANGE_90D },
+  { label: '6m', value: RANGE_6M },
+  { label: '1y', value: RANGE_1Y },
+  { label: 'All', value: RANGE_ALL },
 ];
 
 @Component({
@@ -45,9 +50,9 @@ const RANGES: { label: string; value: Range }[] = [
             }
           </div>
           <div class="legend">
-            <span class="legend-dot" style="background:#3f51b5"></span>CTL
-            <span class="legend-dot" style="background:#ff9800"></span>ATL
-            <span class="legend-dot" style="background:#4caf50"></span>TSB
+            <span class="legend-dot" style="background:#3f51b5"></span>CTL — Fitness
+            <span class="legend-dot" style="background:#ff9800"></span>ATL — Fatigue
+            <span class="legend-dot" style="background:#4caf50"></span>TSB — Form
           </div>
         </div>
       </div>
@@ -60,14 +65,20 @@ export class PmcChartComponent implements AfterViewInit, OnDestroy {
   readonly data = input<PmcDataPoint[]>([]);
   readonly ranges = RANGES;
 
-  readonly selectedRange = signal<Range>('90d');
+  readonly selectedRange = signal<Range>(RANGE_90D);
 
   readonly filteredData = computed(() => {
     const points = this.data();
     const range = this.selectedRange();
-    if (range === 'all' || points.length === 0) return points;
+    if (points.length === 0) return points;
+    if (range === RANGE_ALL) {
+      const firstMeaningful = points.findIndex(
+        (p) => (p.ctl ?? 0) > 0 || (p.atl ?? 0) > 0,
+      );
+      return firstMeaningful > 0 ? points.slice(firstMeaningful - 1) : points;
+    }
 
-    const days = range === '90d' ? 90 : range === '6m' ? 182 : 365;
+    const days = range === RANGE_90D ? 90 : range === RANGE_6M ? 182 : 365;
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - days);
     const cutoffStr = cutoff.toISOString().split('T')[0];
