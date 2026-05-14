@@ -75,7 +75,7 @@ export class PmcChartComponent implements AfterViewInit, OnDestroy {
       const firstMeaningful = points.findIndex(
         (p) => (p.ctl ?? 0) > 0 || (p.atl ?? 0) > 0,
       );
-      return firstMeaningful > 0 ? points.slice(firstMeaningful) : points;
+      return firstMeaningful > 0 ? points.slice(firstMeaningful - 1) : points;
     }
 
     const days = range === RANGE_90D ? 90 : range === RANGE_6M ? 182 : 365;
