@@ -1,6 +1,6 @@
 package com.cyclingcoach.settings
 
-import com.cyclingcoach.ftp.FtpTestRepository
+import com.cyclingcoach.ftp.FtpService
 import com.cyclingcoach.generated.model.AppSettings
 import com.cyclingcoach.generated.model.HrZoneSettings
 import com.cyclingcoach.generated.model.PowerZoneSettings
@@ -12,14 +12,14 @@ import java.time.LocalDate
 class SettingsService(
     private val props: SettingsProperties,
     private val userProfileService: UserProfileService,
-    private val ftpTestRepository: FtpTestRepository,
+    private val ftpService: FtpService,
 ) {
     fun getAppSettings(): AppSettings {
         val p = props.zones.power
         val h = props.zones.hr
 
         return AppSettings(
-            currentFtp = ftpTestRepository.findEffectiveAt(LocalDate.now()),
+            currentFtp = ftpService.findEffectiveAt(LocalDate.now()),
             weightKg = userProfileService.findLatestWeightKg(),
             maxHrBpm = userProfileService.findMaxHr(),
             powerZones =
