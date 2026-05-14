@@ -1,5 +1,4 @@
 import { Component, input, computed } from '@angular/core';
-import { DecimalPipe } from '@angular/common';
 import { MatTableModule } from '@angular/material/table';
 import { HrZoneSettings } from '../../../../core/api/model/models';
 
@@ -15,7 +14,7 @@ interface HrZoneRow {
 
 @Component({
   selector: 'app-hr-zones-table',
-  imports: [DecimalPipe, MatTableModule],
+  imports: [MatTableModule],
   templateUrl: './hr-zones-table.component.html',
   styleUrl: './hr-zones-table.component.scss',
 })
