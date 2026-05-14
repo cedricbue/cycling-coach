@@ -3,11 +3,9 @@ package com.cyclingcoach.garmin.connect.client
 import com.cyclingcoach.garmin.connect.AbstractGarminConnectTest
 import com.github.tomakehurst.wiremock.client.WireMock
 import org.assertj.core.api.Assertions
-import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 
-@Tag("integration")
 class GarminClientIntegrationTest : AbstractGarminConnectTest() {
     @Autowired
     private lateinit var garminClient: GarminConnect

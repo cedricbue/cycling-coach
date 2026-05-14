@@ -1,7 +1,17 @@
 # Cycling Coach App — Technical Plan
 
 ## Purpose
-Personal road cycling training analysis tool. Analyze rides from Garmin Connect data, provide visualization, coaching, and training insights. Single-user, file-based SQLite database, deployable as a single JAR or Docker container.
+
+Personal road cycling training analysis tool. Analyzes rides from Garmin Connect data,
+provides visualization, coaching, and training insights. Single-user, file-based SQLite
+database, deployable as a single JAR or Docker container.
+
+Garmin Connect integration is documented separately in
+[`garmin-connect-integration.md`](garmin-connect-integration.md). This plan covers
+everything the Garmin integration delivers data *to*: ride computation, training load,
+FTP detection, user profile, settings, and the frontend.
+
+---
 
 ## Tech Stack
 
@@ -14,7 +24,6 @@ Personal road cycling training analysis tool. Analyze rides from Garmin Connect 
 | Migrations | Flyway 11.x | Versioned schema migrations; SQLite supported in core |
 | Database | SQLite (org.xerial:sqlite-jdbc) | File-based, WAL mode, backup-friendly, no server |
 | AI Integration | Spring AI (planned) | Ollama and Anthropic as switchable options (not fallback) |
-| Garmin API | OkHttp via `garmin/connect/client/` package | Framework-agnostic `GarminConnect`; handles SSO → DI OAuth2 token exchange, auto-refresh, auto-reauth |
 | Job Scheduling | Spring `@Scheduled` | Built-in; 6h default interval |
 | Async Execution | `@Async(VIRTUAL_THREAD_EXECUTOR)` | Virtual threads for event listeners and parallel ride compute |
 | TCX Parsing | JDK DOM/XPath (`javax.xml.xpath`) | Framework-agnostic, reusable standalone |
@@ -47,42 +56,58 @@ Personal road cycling training analysis tool. Analyze rides from Garmin Connect 
 
 ## Backend Architecture
 
-### Package Layout (`com.cyclingcoach`)
+### API-First Workflow
 
-Structured by domain. Controllers implement generated interfaces from `generated/api/`; DTOs come from `generated/model/`. Each domain package owns its service, repository, and controller. Cross-package coupling is via Spring events.
+The API spec at `src/main/resources/api-spec/cycling-coach-api.yaml` is the source of truth.
+`./mvnw generate-sources` runs openapi-generator twice:
+
+1. **Backend**: generates Kotlin Spring controller interfaces + DTOs under
+   `target/generated-sources/openapi/` (`com.cyclingcoach.generated.api` / `.generated.model`).
+   jOOQ classes go to `target/generated-sources/jooq/` (`com.cyclingcoach.generated.jooq`).
+2. **Frontend**: generates Angular services + TypeScript models into `frontend/src/app/core/api/`.
+
+Never hand-edit anything under `target/generated-sources/` or `frontend/src/app/core/api/`.
+
+### Package Layout (`com.cyclingcoach`, `src/main/kotlin/`)
+
+Packages are domain-scoped. Each domain owns its controller, service, and repository.
+Controllers implement generated interfaces and map manually to generated DTOs (no MapStruct).
+Cross-domain coupling is via Spring events only — no direct service calls across packages.
 
 ```
 com.cyclingcoach
-├── config/                  # Infrastructure wiring
+│
+├── Profiles.kt              # string constants for Spring profile names (TEST, LOCAL)
+│
+├── config/
 │   ├── AsyncConfig.kt              # virtual thread executor (VIRTUAL_THREAD_EXECUTOR)
 │   ├── GarminClientConfig.kt       # @Bean for GarminConfig + GarminConnect
 │   └── WebConfig.kt
 │
-├── ride/                    # Computed cycling metrics
+├── ride/                    # Computed cycling metrics — entry point is GarminActivityStoredEvent
 │   ├── RidesController.kt          # implements generated RidesApi
 │   ├── RideService.kt              # orchestrates: computeForActivity, recomputeRidesFrom, reconcile
-│   ├── RideComputeService.kt       # parses raw JSON (and TCX), computes NP/IF/TSS/best-powers,
-│   │                                # looks up FTP via FtpTestRepository.findEffectiveAt(date),
-│   │                                # rideRepository.save() (COALESCE-protected upsert),
-│   │                                # publishes RideCalculatedEvent (configurable via publishEvent param)
+│   ├── RideComputeService.kt       # parses raw_json → GarminActivity, computes NP/IF/TSS/best-powers;
+│   │                                # looks up FTP via FtpTestRepository.findEffectiveAt(date);
+│   │                                # rideRepository.save() (COALESCE-protected upsert);
+│   │                                # publishes RideCalculatedEvent (publishEvent param controls this)
 │   ├── RideCalculator.kt           # pure functions: NP, bestPower, TSS, IF, VI, EF
 │   ├── RideReadService.kt          # query side
 │   ├── RideRepository.kt           # jOOQ upsert with COALESCE for FTP-dependent fields
 │   ├── RideInput.kt
 │   ├── RideEventListener.kt        # @Async on GarminActivityStoredEvent → compute
-│   │                                # @EventListener(ApplicationReadyEvent) → reconcile orphans + null-TSS rides
-│   ├── RideCalculatedEvent.kt
+│   │                                # @EventListener(ApplicationReadyEvent) → reconcile orphans + null-TSS
+│   ├── RideCalculatedEvent.kt      # rideId, activityId, date, tss
 │   ├── FtpChangeListener.kt        # @EventListener(FtpTestDetectedEvent) → batch recompute from
 │   │                                # prevTestDate onward (synchronous, publishEvent=false),
 │   │                                # then publishes FtpBackfillCompleteEvent(fromDate)
 │   ├── ActivityFileParser.kt       # interface
 │   └── TcxActivityFileParser.kt    # @Component adapter wrapping tcx.TcxParser
 │
-├── pmc/                     # Training load chain
+├── pmc/                     # Training load chain: CTL/ATL/TSB per calendar day
 │   ├── PmcController.kt            # implements generated PmcApi; calls ensureUpToDate() lazily
 │   ├── TrainingLoadService.kt      # EWMA chain walk; ensureUpToDate() extends chain to today
-│   ├── TrainingLoadEventListener.kt # @Async listeners on RideCalculatedEvent and
-│   │                                 # FtpBackfillCompleteEvent
+│   ├── TrainingLoadEventListener.kt # @Async on RideCalculatedEvent and FtpBackfillCompleteEvent
 │   └── TrainingLoadRepository.kt   # jOOQ: findLatestDate, findByDate, findDailyTssSince, upsert
 │
 ├── ftp/                     # FTP test detection + history
@@ -91,8 +116,7 @@ com.cyclingcoach
 │   ├── FtpTestDetectionService.kt  # name detection, type classification, FTP calculation,
 │   │                                # validation against previous FTP (NEEDS_REVIEW for large deltas)
 │   ├── FtpEventListener.kt         # @EventListener(RideCalculatedEvent) → detectFtpTest
-│   ├── FtpEstimationService.kt     # CP model + weighted fallbacks — NOT used in compute path
-│   │                                # (kept for future use; was the old fallback when no FTP test existed)
+│   ├── FtpEstimationService.kt     # CP model + weighted fallbacks — NOT in compute path (kept for reference)
 │   ├── FtpTestType.kt              # RAMP_TEST | TWENTY_MIN_TEST | SIXTY_MIN_TEST | UNKNOWN | ESTIMATED
 │   ├── FtpTestDetectedEvent.kt
 │   ├── FtpBackfillCompleteEvent.kt # emitted by FtpChangeListener after batch recompute
@@ -102,30 +126,13 @@ com.cyclingcoach
 │   ├── TcxParser.kt                # JDK DOM/XPath; returns TcxData
 │   └── TcxData.kt
 │
-├── garmin/                  # Spring-wired sync orchestration
-│   ├── GarminController.kt         # implements generated GarminApi; manual trigger
-│   ├── GarminSyncJob.kt            # @Scheduled + ApplicationReadyEvent startup auth
-│   ├── GarminSyncService.kt        # orchestrates all GarminSyncable beans
-│   ├── GarminSyncable.kt           # interface for sync providers
-│   ├── GarminProperties.kt         # @ConfigurationProperties
-│   ├── connect/                    # Framework-agnostic client (no Spring)
-│   │   ├── client/                 # GarminConnect, GarminConfig, GarminTokens, GarminException,
-│   │   │   │                        # GarminAuthService, GarminHttpClient (OkHttp wrapper)
-│   │   │   └── internal/
-│   │   ├── activity/               # GarminActivityService, repository, sync cursor, sync service,
-│   │   │                            # GarminActivityStoredEvent
-│   │   └── weight/                 # GarminWeightService, repository, sync cursor, sync service,
-│   │                                # GarminWeightStoredEvent
-│   └── internal/
-│       └── GarminTokenStore.kt     # Spring impl of client TokenStore — persists DI tokens
-│
 ├── user/                    # Single-row user profile + weight history
 │   ├── WeightController.kt         # implements generated WeightApi
 │   ├── UserProfileService.kt       # findMaxHr, updateMaxHrIfHigher, weight lookups
 │   ├── UserProfileRepository.kt    # jOOQ: findMaxHr, updateMaxHrIfHigher
 │   ├── UserProfileEventListener.kt # @Async on RideCalculatedEvent → updateMaxHrIfHigher
-│   │                                # @Async on GarminWeightStoredEvent → store weights
-│   └── WeightRepository.kt
+│   │                                # @Async on GarminWeightStoredEvent → storeWeightMeasurements
+│   └── WeightRepository.kt         # upsert + findWeightAtOrBefore(date) for W·kg lookup
 │
 ├── settings/                # Read-only settings projection
 │   ├── SettingsController.kt       # implements generated SettingsApi
@@ -136,129 +143,134 @@ com.cyclingcoach
 └── CyclingCoachApplication.kt
 ```
 
-Planned but not yet implemented (do not assume the package exists): `calendar/`, `training/`, `coaching/`, `nutrition/`.
+Garmin packages (`garmin/`, `garmin/connect/`, `garmin/internal/`) are documented in
+[`garmin-connect-integration.md`](garmin-connect-integration.md). Application packages
+listed above have **no compile-time imports** from `garmin.connect.*` — they receive
+integration data exclusively via Spring events.
+
+Planned but not yet implemented: `calendar/`, `coaching/`, `nutrition/`.
 
 Generated output (do not edit): `target/generated-sources/openapi/` and `target/generated-sources/jooq/`.
 
-### Event-Driven Pipeline
+---
 
-After `GarminSyncService` stores a new activity it publishes `GarminActivityStoredEvent`. Listeners run asynchronously on virtual threads.
+## Event-Driven Pipeline
+
+The application treats `GarminActivityStoredEvent` and `GarminWeightStoredEvent` as inbound
+integration events. The Garmin package publishes them; the application packages consume them.
 
 ```
-GarminSyncJob (every 6h or manual trigger)
-  └─ GarminSyncService → GarminActivitySyncService.sync()
-       │   (also runs GarminWeightSyncService.sync())
-       └─ GarminActivityService.storeAll
-            └─ publishes GarminActivityStoredEvent(garminActivityId)        [per new activity]
-                 │
-                 ├─ RideEventListener.onGarminActivityStored  (@Async)
-                 │   └─ RideComputeService.compute(activityId, null)
-                 │        - parses raw_json → GarminActivity
-                 │        - resolveRideFtp(date) = FtpTestRepository.findEffectiveAt(date)
-                 │        - NP / IF / TSS / W·kg / best powers via RideCalculator
-                 │        - rideRepository.save() — COALESCE-protected upsert
-                 │        - publishes RideCalculatedEvent(rideId, activityId, date, tss)
-                 │
-                 │           ┌── TrainingLoadEventListener.onRideCalculated  (@Async)
-                 │           │     └─ TrainingLoadService.recalculateFrom(date)
-                 │           │
-                 │           ├── FtpEventListener.onRideCalculated  (sync — same virtual thread)
-                 │           │     └─ FtpTestDetectionService.detectFtpTest
-                 │           │          - guard: existsByRideId → skip
-                 │           │          - if name matches FTP test pattern:
-                 │           │              classify type, calculate FTP, validate
-                 │           │              ftpTestRepository.save
-                 │           │              publishes FtpTestDetectedEvent
-                 │           │                 └─ FtpChangeListener.onFtpTestDetected  (sync)
-                 │           │                      - prevTest = findLatestBefore(D)
-                 │           │                      - fromDate = prevTest?.date ?: D
-                 │           │                      - rideService.recomputeRidesFrom(fromDate)
-                 │           │                          (synchronous loop; publishEvent=false
-                 │           │                           to avoid N concurrent PMC triggers)
-                 │           │                      - publishes FtpBackfillCompleteEvent(fromDate)
-                 │           │                          └─ TrainingLoadEventListener.onFtpBackfillComplete  (@Async)
-                 │           │                                └─ TrainingLoadService.recalculateFrom(fromDate)
-                 │           │
-                 │           └── UserProfileEventListener.onRideCalculated  (@Async)
-                 │                 └─ reads ride.max_hr → updateMaxHrIfHigher
-                 │
-                 └─ (parallel) GarminWeightStoredEvent → UserProfileEventListener stores weights
+[Garmin integration] publishes GarminActivityStoredEvent(garminActivityId, externalId)
+     │
+     └─ RideEventListener.onGarminActivityStored  (@Async, virtual thread)
+          └─ RideComputeService.compute(activityId, publishEvent=true)
+               - reads garmin_activity row (raw_json + raw_tcx)
+               - parses raw_json → GarminActivity
+               - resolveRideFtp(date) = FtpTestRepository.findEffectiveAt(date)  ← point-in-time
+               - NP / IF / TSS / W·kg / best powers via RideCalculator
+               - rideRepository.save()  ← COALESCE-protected upsert
+               - publishes RideCalculatedEvent(rideId, activityId, date, tss)
+                    │
+                    ├─ TrainingLoadEventListener.onRideCalculated  (@Async)
+                    │     └─ TrainingLoadService.recalculateFrom(date)
+                    │
+                    ├─ FtpEventListener.onRideCalculated  (sync — same virtual thread)
+                    │     └─ FtpTestDetectionService.detectFtpTest(ride)
+                    │          - guard: existsByRideId → skip if already detected
+                    │          - if name matches FTP test pattern:
+                    │              classify type, calculate FTP, validate bounds + delta
+                    │              ftpTestRepository.save()
+                    │              publishes FtpTestDetectedEvent
+                    │                 └─ FtpChangeListener.onFtpTestDetected  (sync)
+                    │                      - prevTest = findLatestBefore(D)
+                    │                      - fromDate = prevTest?.date ?: D
+                    │                      - rideService.recomputeRidesFrom(fromDate)
+                    │                          (synchronous loop; publishEvent=false
+                    │                           to avoid N concurrent PMC triggers)
+                    │                      - publishes FtpBackfillCompleteEvent(fromDate)
+                    │                          └─ TrainingLoadEventListener.onFtpBackfillComplete  (@Async)
+                    │                                └─ TrainingLoadService.recalculateFrom(fromDate)
+                    │
+                    └─ UserProfileEventListener.onRideCalculated  (@Async)
+                          └─ reads ride.max_hr → updateMaxHrIfHigher
+
+[Garmin integration] publishes GarminWeightStoredEvent(entries)
+     └─ UserProfileEventListener.onGarminWeightStored  (@Async)
+          └─ UserProfileService.storeWeightMeasurements(entries) → user_weight upserts
 ```
 
-**Why two FTP events:** `FtpTestDetectedEvent` is fired by the detection service inside the compute thread and is consumed synchronously by `FtpChangeListener` to do the batch recompute. After the batch, `FtpChangeListener` emits the second event `FtpBackfillCompleteEvent` so the PMC recalc is decoupled from the ride package (no `ride → pmc` import) and runs once per backfill, not N times.
+**Why two FTP events:** `FtpTestDetectedEvent` is fired by the detection service inside
+the compute thread and is consumed synchronously by `FtpChangeListener` to do the batch
+recompute. `FtpChangeListener` then emits `FtpBackfillCompleteEvent` so the PMC recalc
+is decoupled from the `ride` package (no `ride → pmc` import) and runs once per backfill,
+not once per ride.
 
-### Startup Reconciliation
+---
 
-`RideEventListener.onApplicationReady()` runs two passes:
+## Key Domain Rules
 
-1. **`reconcileOrphanedActivities()`** — finds `garmin_activity` rows that have no corresponding `ride` row (crash gap, parse failure) and recomputes them.
-2. **`reconcileRidesWithNullTss()`** — finds `ride` rows that have `normalized_power IS NOT NULL` but `tss IS NULL`. These are rides whose original compute happened before any FTP test was saved (race condition during initial sync). With the current point-in-time FTP available, these get TSS via `computeAsync()`. The `COALESCE` in `RideRepository.save()` prevents this from being clobbered by any racing thread.
+- **FTP authority**: `ftp_test` is the sole source of truth. `FtpTestRepository.findEffectiveAt(date)` returns the FTP from the latest test with `date ≤ rideDate`, or null. `user_profile` does not cache FTP.
+- **Point-in-time FTP**: rides use the FTP in effect at their date. If no test exists on or before the ride date, IF/TSS/W·kg remain null — no estimation in the compute path.
+- **FTP backfill**: when a new test is detected at date D, `FtpChangeListener` recomputes all rides from `prevTestDate` (or D if no previous) through today with `publishEvent=false`, then publishes one `FtpBackfillCompleteEvent` so PMC recalculates once.
+- **COALESCE upsert**: `RideRepository.save()` uses `COALESCE(excluded.X, ride.X)` for FTP-dependent fields (`tss`, `ftp`, `intensity_factor`, `watts_per_kg`). A late-arriving compute with null values cannot overwrite a backfill-set value.
+- **Startup reconciliation**: `RideEventListener.onApplicationReady()` runs `reconcileOrphanedActivities()` (activities without a ride row) and `reconcileRidesWithNullTss()` (rides with NP but no TSS) using the current point-in-time FTP.
+- **TrainingLoad chain**: CTL (42d EWMA) and ATL (7d EWMA) form a running chain — they cannot be derived from a single row. After any sync, recalculate forward from the earliest affected date.
+- **PMC lazy fill**: `PmcController.getPmc()` calls `TrainingLoadService.ensureUpToDate()` first. If `training_load.date < today`, it extends the chain from `latestDate + 1` (not from `latestDate`) to avoid recomputing the existing last row with a zero prior.
+- **TSB** = CTL_yesterday − ATL_yesterday (previous day's values, not today's).
+- **Max HR auto-detection**: `UserProfileEventListener` updates `user_profile.max_hr` only when a ride's `max_hr` is higher — monotonically increasing, never overwritten by a lower value.
+- **HR zones**: 5 zones, max HR–referenced (% of `user_profile.max_hr`).
+- **Power zones**: Coggan 7-zone model (% of FTP).
 
-### PMC Lazy Fill
+---
 
-`PmcController.getPmc()` calls `TrainingLoadService.ensureUpToDate()` before querying. If `training_load.date` is before today, it calls `recalculateFrom(latestDate + 1 day)` to extend the chain with TSS=0 for each rest day. Starting from `latest + 1` (not `latest`) keeps the existing last row's CTL/ATL as the prior — they are not recomputed from a zero prior, which would clobber the chain.
+## Database Schema
 
-### Key Backend Entities
+Schema is split into two migrations:
 
-**garmin_activity** — Raw Garmin Connect activity record. Holds both the original TCX file and the original activity JSON. All derived data flows from these.
-- `id`, `external_id` (Garmin activity ID, dedup key), `raw_tcx`, `raw_json`, `imported_at`
+- **`V1__init.sql`** — core application domain: `ride`, `user_profile`, `user_weight`, `ftp_test`, `training_load`
+- **`V2__garmin.sql`** — Garmin Connect integration tables (see [`garmin-connect-integration.md`](garmin-connect-integration.md))
 
-**ride** — Computed cycling metrics. One ride per garmin_activity. The unique key is `external_id` (so the same Garmin activity always maps to the same ride row even after reimport). The `activity_id` FK can shift when an activity is replaced.
-- Identity: `id`, `activity_id` (FK, non-unique), `external_id` (unique, dedup key)
-- Activity: `date`, `name`, `start_time`, `manufacturer`, `distance`, `elevation_gain`, `elevation_descent`, `duration`
-- Power/HR/cadence: `avg_*` / `max_*` for power, hr, cadence; `avg_grade`, `max_grade`
-- Computed: `normalized_power`, `intensity_factor`, `tss`, `watts_per_kg`, `ftp` (point-in-time value used)
-- Best powers: `best_power_5s/30s/1min/5min/10min/20min/60min`
-- Speed: `avg_speed_mps`, `max_speed_mps`
-- Quality: `variability_index`, `efficiency_factor`
-- User: `rpe` (1–10), `coach_summary` (TEXT), `notes` (TEXT)
-
-**training_load** — One row per calendar day. CTL/ATL/TSB are a running chain.
-- `id`, `date` (unique), `tss` (daily sum), `ctl` (42d EWMA), `atl` (7d EWMA), `tsb` (CTL_prev − ATL_prev)
-
-**ftp_test** — Sole authority for FTP at a point in time. `FtpTestRepository.findEffectiveAt(date)` returns the latest test with `date ≤ given`.
-- `id`, `ride_id` (FK, partial-unique to prevent re-detection duplicates), `date`, `ftp_value`, `test_type` (RAMP_TEST | TWENTY_MIN_TEST | SIXTY_MIN_TEST | UNKNOWN | ESTIMATED), `weight_kg`, `notes`
-
-**user_profile** — Single-row table (id=1). Holds the auto-detected max heart rate (monotonically increasing across rides). FTP is **not** cached here — read from `ftp_test`.
-- `id` (always 1), `max_hr` (INTEGER, nullable), `updated_at`
-
-**user_weight** — Body weight at a point in time. `WeightRepository.findWeightAtOrBefore(date)` is used by `RideComputeService` for W·kg.
-- `id`, `date` (unique), `weight_kg`
-
-**garmin_token** — DI OAuth2 access + refresh tokens. Credentials never stored.
-- `access_token`, `refresh_token`, `di_client_id`, `access_token_expires_at`, `refresh_token_expires_at`, `created_at`
-
-**garmin_activity_sync_cursor** / **garmin_weight_sync_cursor** — Single-row tables tracking the last fully-completed sync's `since` date. Only written after the sync loop exits successfully.
-
-**garmin_weight** — Raw weight measurements from Garmin Connect (external_id + raw_json + imported_at). Propagated into `user_weight` by `UserProfileService.storeWeightMeasurements`.
-
-### Database Schema
-
-Single consolidated migration `V1__init.sql`. The full DDL is the source of truth — see `src/main/resources/db/migration/V1__init.sql`. Key table definitions:
+`ride.activity_id` has a FK to `garmin_activity.id` (V1 → V2). SQLite does not validate FK
+target existence at DDL time — the ordering is safe.
 
 ```sql
-CREATE TABLE garmin_activity (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    external_id TEXT UNIQUE NOT NULL,
-    raw_tcx     TEXT        NOT NULL,
-    raw_json    TEXT,
-    imported_at TEXT        NOT NULL DEFAULT (datetime('now'))
-);
+-- V1__init.sql
 
 CREATE TABLE ride (
     id                INTEGER PRIMARY KEY AUTOINCREMENT,
-    activity_id       INTEGER,
-    external_id       TEXT UNIQUE NOT NULL,
+    activity_id       INTEGER,              -- nullable FK to garmin_activity.id
+    external_id       TEXT UNIQUE NOT NULL, -- dedup key (Garmin activity ID)
     date              TEXT NOT NULL,
-    -- ... (distance, duration, power, HR, cadence, grade, NP, IF, TSS,
-    --       best powers, watts/kg, FTP at ride date, speed, VI, EF,
-    --       bike_id, rpe, coach_summary, notes)
-    FOREIGN KEY (activity_id) REFERENCES garmin_activity(id)
+    name              TEXT,
+    start_time        TEXT,
+    manufacturer      TEXT,
+    distance          REAL,
+    elevation_gain    REAL,
+    elevation_descent REAL,
+    duration          REAL,
+    avg_power         REAL, max_power         REAL,
+    avg_hr            REAL, max_hr            REAL,
+    avg_cadence       REAL, max_cadence       REAL,
+    avg_grade         REAL, max_grade         REAL,
+    normalized_power  REAL,
+    intensity_factor  REAL,
+    tss               REAL,
+    best_power_5s     REAL, best_power_30s    REAL, best_power_1min  REAL,
+    best_power_5min   REAL, best_power_10min  REAL, best_power_20min REAL, best_power_60min REAL,
+    watts_per_kg      REAL,
+    ftp               REAL,                  -- point-in-time FTP used for this ride
+    avg_speed_mps     REAL, max_speed_mps     REAL,
+    variability_index REAL,
+    efficiency_factor REAL,
+    rpe               INTEGER CHECK (rpe BETWEEN 1 AND 10),
+    coach_summary     TEXT,
+    notes             TEXT,
+    FOREIGN KEY (activity_id) REFERENCES garmin_activity (id)
 );
 
 CREATE TABLE user_profile (
     id         INTEGER PRIMARY KEY CHECK (id = 1),
-    max_hr     INTEGER,                       -- auto-detected from rides
+    max_hr     INTEGER,           -- auto-detected from rides; monotonically increasing
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -275,60 +287,61 @@ CREATE TABLE ftp_test (
     test_type TEXT CHECK (test_type IN ('RAMP_TEST','TWENTY_MIN_TEST','SIXTY_MIN_TEST','UNKNOWN','ESTIMATED')),
     weight_kg REAL,
     notes     TEXT,
-    ride_id   INTEGER REFERENCES ride(id)
+    ride_id   INTEGER REFERENCES ride (id)
 );
-CREATE UNIQUE INDEX uq_ftp_test_ride_id ON ftp_test(ride_id) WHERE ride_id IS NOT NULL;
+CREATE UNIQUE INDEX uq_ftp_test_ride_id ON ftp_test (ride_id) WHERE ride_id IS NOT NULL;
 
 CREATE TABLE training_load (
     id   INTEGER PRIMARY KEY AUTOINCREMENT,
     date TEXT NOT NULL UNIQUE,
-    tss  REAL NOT NULL DEFAULT 0,
-    ctl  REAL NOT NULL DEFAULT 0,
-    atl  REAL NOT NULL DEFAULT 0,
-    tsb  REAL NOT NULL DEFAULT 0
+    tss  REAL NOT NULL DEFAULT 0,   -- total TSS for the day
+    ctl  REAL NOT NULL DEFAULT 0,   -- 42-day EWMA (fitness)
+    atl  REAL NOT NULL DEFAULT 0,   -- 7-day EWMA (fatigue)
+    tsb  REAL NOT NULL DEFAULT 0    -- CTL_prev − ATL_prev (form)
 );
 
-CREATE TABLE garmin_token (
-    access_token             TEXT NOT NULL,
-    refresh_token            TEXT NOT NULL,
-    di_client_id             TEXT NOT NULL DEFAULT '',
-    access_token_expires_at  TEXT NOT NULL,
-    refresh_token_expires_at TEXT NOT NULL,
-    -- ...
-);
-
-CREATE TABLE garmin_activity_sync_cursor (id INTEGER PRIMARY KEY CHECK (id=1), since TEXT NOT NULL);
-CREATE TABLE garmin_weight_sync_cursor   (id INTEGER PRIMARY KEY,             since TEXT NOT NULL);
-
-CREATE TABLE garmin_weight (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    external_id TEXT NOT NULL UNIQUE,
-    raw_json    TEXT NOT NULL,
-    imported_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
+INSERT INTO user_profile(id, updated_at) VALUES (1, datetime('now'));
 ```
 
-### Race Condition Handling
+**Schema change workflow:** while pre-release, prefer editing V1/V2 with a DB reset
+(`rm data/cycling-coach.db`) over stacking new migration files. After the first production
+deployment, switch to additive `V{N}__*.sql` migrations only.
 
-During the initial Garmin sync, all activities are stored sequentially but `GarminActivityStoredEvent` listeners run in parallel on virtual threads. Without protection:
+Workflow for new migrations:
+1. Add `V{N}__description.sql`
+2. Apply to local DB (let `./mvnw spring-boot:run` do it, or apply manually)
+3. If applied manually, register in `flyway_schema_history` — Flyway validates checksums on every build
+4. Run `./mvnw jooq-codegen:generate` to regenerate jOOQ classes
+
+jOOQ maps SQLite INTEGER primary keys as `Int?` — cast with `.toLong()` when your domain model uses `Long`.
+
+---
+
+## Race Condition Handling
+
+During the initial Garmin sync all activities are stored sequentially but
+`GarminActivityStoredEvent` listeners run in parallel on virtual threads:
 
 1. All compute threads start before any FTP test is saved → all rides get null TSS.
 2. The FTP test ride's compute eventually detects the test and saves it.
-3. `FtpChangeListener` runs the backfill → assigns TSS to all rides in range.
-4. **Race**: a parallel compute thread that started before the FTP test was saved finishes after the backfill, calling `save()` with `tss=null`. Without protection, this would clobber the backfill.
+3. `FtpChangeListener` runs the backfill → assigns TSS to rides in range.
+4. **Race**: a thread that started before the FTP test was saved finishes after the
+   backfill and calls `save()` with `tss=null`. Without protection this clobbers the backfill.
 
 **Two layers of defense:**
 
-1. **`RideRepository.save()` uses `COALESCE(excluded.X, ride.X)` for FTP-dependent fields** (`tss`, `ftp`, `intensity_factor`, `watts_per_kg`). A null new value cannot overwrite a non-null existing value. The upsert is monotonic for these fields — values can only move from null to set, never back.
-
-2. **Startup `reconcileRidesWithNullTss()`** sweeps any remaining null-TSS rides on `ApplicationReadyEvent` and recomputes them through the current point-in-time FTP. Catches any rides that were never in any backfill range.
+1. **COALESCE upsert** — `RideRepository.save()` uses `COALESCE(excluded.X, ride.X)` for
+   FTP-dependent fields. A null new value cannot overwrite a non-null existing value.
+2. **Startup reconciliation** — `reconcileRidesWithNullTss()` on `ApplicationReadyEvent`
+   sweeps remaining null-TSS rides and recomputes them through the current point-in-time FTP.
 
 ---
 
 ## Frontend Architecture
 
-NgRx state lives in `+state/` inside each feature directory (the `+` prefix sorts it to the top). HTTP calls use exclusively the generated services from `core/api/` (produced by openapi-generator). No hand-written `HttpClient` calls. Components use external template + style files (no inline `template:` strings).
+NgRx state lives in `+state/` inside each feature directory. HTTP calls come exclusively
+from the generated services in `core/api/` — no hand-written `HttpClient` calls.
+Components use external template + style files (no inline `template:` strings).
 
 ```
 src/app
@@ -342,7 +355,7 @@ src/app
 │   └── util/
 ├── features/
 │   ├── shell/             # App shell, side nav, sync button
-│   ├── home/              # Landing
+│   ├── home/
 │   ├── dashboard/
 │   │   ├── +state/        # actions, reducer, effects, selectors
 │   │   └── components/
@@ -357,14 +370,13 @@ src/app
 │   ├── user-profile/
 │   │   ├── +state/
 │   │   └── components/
-│   │       ├── ftp-history/       # FTP timeline with "View ride" deep link
+│   │       ├── ftp-history/      # FTP timeline with "View ride" deep link
 │   │       └── weight-history/
 │   └── settings/
 │       ├── +state/
 │       └── components/
-│           ├── power-zones/        # %FTP → watts
-│           ├── hr-zones/           # %max HR → bpm (capped at max HR for Z5)
-│           └── training-zones/     # (merged view component, unused after tab split)
+│           ├── power-zones/      # %FTP → watts
+│           └── hr-zones/         # %max HR → bpm (capped at max HR for Z5)
 ├── components/
 │   ├── chart/
 │   ├── map/
@@ -374,32 +386,32 @@ src/app
 
 ### UI Conventions
 
-- **Tabs with deeplinks**: settings and user-profile pages use `mat-tab-group` with a `?tab=` query param synced two-way (URL → selected tab on load; tab change → `router.navigate` with `replaceUrl: true`).
+- **Tabs with deeplinks**: `mat-tab-group` with `?tab=` query param synced two-way.
   - `/settings?tab=power|hr`
   - `/profile?tab=ftp|weight`
-- **PMC chart**: shows only CTL / ATL / TSB. The zero line is rendered darker (`rgba(0,0,0,0.35)`, 1.5 px) to make the TSB baseline easily readable.
-- **Power zones**: Coggan 7-zone model, %FTP boundaries default 55 / 75 / 90 / 105 / 120, all configurable in `application.yml` under `cycling.zones.power.*`.
-- **HR zones**: 5-zone max HR–referenced model. Zone upper bounds default 60 / 72 / 82 / 92 (% max HR). Z5 upper bound is capped at the recorded max HR — never `∞`. Configurable in `application.yml` under `cycling.zones.hr.*`.
+- **PMC chart**: CTL / ATL / TSB only. Zero line rendered at `rgba(0,0,0,0.35)`, 1.5 px.
+- **Power zones**: Coggan 7-zone, %FTP boundaries default 55 / 75 / 90 / 105 / 120.
+- **HR zones**: 5-zone max HR–referenced. Z5 upper bound capped at recorded max HR.
 
 ---
 
-## API Endpoints (current)
+## API Endpoints
 
 ```
-GET    /api/rides                       — paginated ride list
-GET    /api/rides/{id}                  — ride detail
-GET    /api/pmc?from=&to=               — CTL/ATL/TSB time series (lazy-fills today on rest days)
-GET    /api/ftp                         — FTP history; each entry includes rideId where applicable
-GET    /api/weight                      — weight history
-GET    /api/settings                    — current FTP (from ftp_test), max HR, zone thresholds
-POST   /api/garmin/sync                 — manual sync trigger
-GET    /api/garmin/auth/status          — auth status
-POST   /api/garmin/auth                 — re-authenticate
-GET    /health                          — actuator
-GET    /actuator/prometheus             — metrics
+GET    /api/rides                  — paginated ride list
+GET    /api/rides/{id}             — ride detail
+GET    /api/pmc?from=&to=          — CTL/ATL/TSB time series (lazy-fills today on rest days)
+GET    /api/ftp                    — FTP history; each entry includes rideId where applicable
+GET    /api/weight                 — weight history
+GET    /api/settings               — current FTP (from ftp_test), max HR, zone thresholds
+POST   /api/garmin/sync            — manual sync trigger
+GET    /api/garmin/auth/status     — auth status
+POST   /api/garmin/auth            — re-authenticate
+GET    /health                     — actuator
+GET    /actuator/prometheus        — metrics
 ```
 
-Future endpoints (not yet implemented): `/api/calendar`, `/api/coaching/analyze`.
+Future: `/api/calendar`, `/api/coaching/analyze`.
 
 ---
 
@@ -410,22 +422,48 @@ All runtime config via `application.yml` or environment variables — no write A
 ```yaml
 cycling:
   zones:
-    power:                       # % of FTP
+    power:                 # % of FTP (Coggan 7-zone)
       z1Max: 55
       z2Max: 75
       z3Max: 90
       z4Max: 105
       z5Max: 120
-    hr:                          # % of max HR
+    hr:                    # % of max HR (5-zone)
       z1Max: 60
       z2Max: 72
       z3Max: 82
-      z4Max: 92                  # Z5 capped at 100% max HR by the UI
+      z4Max: 92            # Z5 upper bound capped at 100% max HR in the UI
 ```
 
-Garmin auth: `GARMIN_EMAIL` + `GARMIN_PASSWORD` env vars drive startup login. DI OAuth2 tokens persisted in `garmin_token`. Credentials are never persisted.
+Garmin auth: `GARMIN_EMAIL` + `GARMIN_PASSWORD` env vars. DI OAuth2 tokens persisted in
+`garmin_token`. Credentials never persisted.
 
 AI provider (when integrated): `AI_PROVIDER=ollama|anthropic`, `AI_MODEL=...`.
+
+---
+
+## Testing Strategy
+
+- **Backend unit** — MockK, `@Tag("unit")`. One service method in isolation. No Spring context.
+  Examples: `RideComputeServiceTest`, `FtpTestDetectionServiceTest`, `TrainingLoadServiceTest`,
+  `RideCalculatorTest`, `TcxParserTest`.
+
+- **Backend integration** — Both base classes carry `@IntegrationTest` (project meta-annotation:
+  `@SpringBootTest + @ActiveProfiles(Profiles.TEST) + @Tag("integration")`). Concrete test classes
+  inherit all three and must not redeclare them.
+  - `AbstractApplicationIntegrationTest` — full context + WireMock + jOOQ DSL +
+    `@BeforeEach resetState()` that truncates all tables.
+  - `AbstractGarminConnectTest` — lighter Garmin-client-only context. See
+    [`garmin-connect-integration.md`](garmin-connect-integration.md).
+  - `ProfileEnforcementTest` — `@Tag("unit")` reflective test; fails if any `@SpringBootTest`
+    class in the codebase is missing `@ActiveProfiles(Profiles.TEST)`.
+
+- **Notable integration suites** (all extend `AbstractApplicationIntegrationTest`):
+  - `GarminSyncPipelineIntegrationTest` — full sync → ride → PMC → weight pipeline.
+  - `FtpBackfillIntegrationTest` — FTP test detected after rides → backfill → correct TSS.
+  - `PmcControllerIntegrationTest` — `ensureUpToDate()` extends the EWMA chain on rest days.
+
+- **Frontend** — Vitest via `ng test`.
 
 ---
 
@@ -440,17 +478,17 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./data:/app/data           # SQLite DB lives here
+      - ./data:/app/data        # SQLite DB
     environment:
       - SPRING_PROFILES_ACTIVE=prod
       - GARMIN_EMAIL=${GARMIN_EMAIL}
       - GARMIN_PASSWORD=${GARMIN_PASSWORD}
-      # AI_PROVIDER=ollama or anthropic (when integrated)
 ```
 
 ### Dockerfile
 
-Multi-stage. The `frontend-maven-plugin` installs Node and runs `ng build` inside the Maven phase, so no separate Node stage is needed.
+Multi-stage. `frontend-maven-plugin` installs Node and runs `ng build` inside the Maven
+phase — no separate Node stage needed.
 
 ```dockerfile
 FROM maven:3.9-eclipse-temurin-25 AS build
@@ -469,40 +507,25 @@ CMD ["java", "-jar", "app.jar"]
 
 ---
 
-## Testing Strategy
-
-- **Backend unit** — MockK, `@Tag("unit")`. One service method in isolation. Examples: `RideComputeServiceTest`, `FtpTestDetectionServiceTest`, `TrainingLoadServiceTest`, `RideCalculatorTest`, `TcxParserTest`.
-- **Backend integration** — `@SpringBootTest` + WireMock for the Garmin API. Real SQLite. Each test resets the DB via `AbstractApplicationIntegrationTest.resetState()`. Notable suites:
-  - `GarminSyncPipelineIntegrationTest` — full sync → ride → PMC → weight pipeline with a seeded FTP test.
-  - `FtpBackfillIntegrationTest` — verifies that an FTP test detected after rides exist produces correct TSS for all subsequent rides (covers the race-condition fix).
-  - `PmcControllerIntegrationTest` — verifies `ensureUpToDate()` extends the EWMA chain on rest days and is idempotent when today already has a row.
-  - `GarminActivityImportIntegrationTest`, `GarminWeightSyncIntegrationTest`, `GarminSyncServiceIntegrationTest`, `GarminClientIntegrationTest` — Garmin client wiring.
-- **Frontend** — Vitest via `ng test`.
-
----
-
 ## Development Workflow
+
+### Local Dev
+1. `./mvnw spring-boot:run` — backend on :8080
+2. `cd frontend && ng serve` — frontend on :4200, proxies API to :8080
+3. Garmin sync runs automatically every 6 h. Manual trigger: `POST /api/garmin/sync`.
 
 ### API-First
 1. Edit `src/main/resources/api-spec/cycling-coach-api.yaml`
 2. `./mvnw generate-sources` — regenerates backend interfaces + DTOs and Angular services + models
-3. Implement the generated Spring interface in the corresponding controller
-4. Use the generated Angular service via injection — no hand-written HTTP
-
-### Local Dev
-1. `./mvnw spring-boot:run` (backend on :8080)
-2. `cd frontend && ng serve` (frontend on :4200, proxies API to :8080)
-3. Garmin sync runs automatically every 6 h. Manual trigger: `POST /api/garmin/sync` or use the Sync button in the UI.
-
-### Schema Changes
-The schema is currently in a single consolidated `V1__init.sql`. While pre-release, prefer extending V1 with a DB reset over stacking incremental migrations. After the first production deployment, switch to additive `V{N}__*.sql` migrations.
+3. Implement the generated Spring interface in the controller
+4. Use the generated Angular service via injection
 
 ---
 
 ## Out of Scope (for now)
 - Multi-user
-- Strava/Wahoo integrations
+- Strava / Wahoo integrations
 - Social features
-- AI integration (coaching package is reserved but unimplemented)
+- AI coaching (package reserved, unimplemented)
 - ZWO export for Zwift
 - Activity calendar view

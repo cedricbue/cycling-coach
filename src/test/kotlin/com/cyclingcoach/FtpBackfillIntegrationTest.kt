@@ -8,7 +8,6 @@ import com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo
 import com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
-import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import java.time.Duration
@@ -22,7 +21,6 @@ import java.time.Duration
  * 4. Rides that were already persisted with null TSS (because FTP didn't exist yet)
  *    must receive correct TSS and IF after the backfill completes.
  */
-@Tag("integration")
 class FtpBackfillIntegrationTest : AbstractApplicationIntegrationTest() {
     @Autowired
     private lateinit var garminSyncService: GarminSyncService

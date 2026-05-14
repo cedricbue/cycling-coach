@@ -1,9 +1,10 @@
 package com.cyclingcoach.garmin.connect.activity
 
-import com.cyclingcoach.AbstractApplicationIntegrationTest
 import com.cyclingcoach.garmin.activity.GarminActivityStoredEvent
-import com.cyclingcoach.garmin.connect.client.GarminConnect
+import com.cyclingcoach.garmin.connect.AbstractGarminConnectTest
 import com.cyclingcoach.generated.jooq.tables.references.GARMIN_ACTIVITY
+import com.cyclingcoach.generated.jooq.tables.references.RIDE
+import com.cyclingcoach.generated.jooq.tables.references.TRAINING_LOAD
 import com.cyclingcoach.ride.RideCalculatedEvent
 import com.github.tomakehurst.wiremock.client.WireMock.aResponse
 import com.github.tomakehurst.wiremock.client.WireMock.get
@@ -11,22 +12,21 @@ import com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo
 import com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
+import org.jooq.DSLContext
 import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.test.context.event.ApplicationEvents
 import org.springframework.test.context.event.RecordApplicationEvents
 import java.time.Duration
 
-@Tag("integration")
 @RecordApplicationEvents
-class GarminActivityImportIntegrationTest : AbstractApplicationIntegrationTest() {
-    @Autowired
-    private lateinit var garminConnect: GarminConnect
-
+class GarminActivityImportIntegrationTest : AbstractGarminConnectTest() {
     @Autowired
     private lateinit var garminActivitySyncService: GarminActivitySyncService
+
+    @Autowired
+    private lateinit var dsl: DSLContext
 
     @Autowired
     lateinit var applicationEvents: ApplicationEvents
@@ -46,6 +46,13 @@ class GarminActivityImportIntegrationTest : AbstractApplicationIntegrationTest()
             .getResourceAsStream("/fixtures/garmin/activity_22801381040.tcx")!!
             .bufferedReader()
             .readText()
+    }
+
+    @BeforeEach
+    fun cleanDatabase() {
+        dsl.deleteFrom(TRAINING_LOAD).execute()
+        dsl.deleteFrom(RIDE).execute()
+        dsl.deleteFrom(GARMIN_ACTIVITY).execute()
     }
 
     @BeforeEach
