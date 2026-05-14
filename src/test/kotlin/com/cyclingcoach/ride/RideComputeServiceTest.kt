@@ -1,6 +1,6 @@
 package com.cyclingcoach.ride
 
-import com.cyclingcoach.ftp.FtpTestRepository
+import com.cyclingcoach.ftp.FtpService
 import com.cyclingcoach.garmin.activity.GarminActivityService
 import com.cyclingcoach.user.UserProfileService
 import io.mockk.every
@@ -20,7 +20,7 @@ class RideComputeServiceTest {
     private val garminActivityService: GarminActivityService = mockk()
     private val rideRepository: RideRepository = mockk()
     private val userProfileService: UserProfileService = mockk()
-    private val ftpTestRepository: FtpTestRepository = mockk()
+    private val ftpService: FtpService = mockk()
     private val eventPublisher: ApplicationEventPublisher = mockk()
     private val objectMapper = ObjectMapper()
 
@@ -29,7 +29,7 @@ class RideComputeServiceTest {
             garminActivityService,
             rideRepository,
             userProfileService,
-            ftpTestRepository,
+            ftpService,
             eventPublisher,
             objectMapper,
         )
@@ -46,7 +46,7 @@ class RideComputeServiceTest {
     fun `compute saves ride and publishes RideCalculatedEvent`() {
         every { garminActivityService.findRawJsonById(1L) } returns loadFixtureJson()
         every { garminActivityService.findExternalIdById(1L) } returns "22801381040"
-        every { ftpTestRepository.findEffectiveAt(any()) } returns 200.0
+        every { ftpService.findEffectiveAt(any()) } returns 200.0
         every { userProfileService.findLatestWeightKg() } returns 70.0
         every { rideRepository.save(any()) } returns 42L
         justRun { eventPublisher.publishEvent(any<Any>()) }
@@ -65,7 +65,7 @@ class RideComputeServiceTest {
     fun `compute passes externalId to RideInput so upsert deduplicates by external_id`() {
         every { garminActivityService.findRawJsonById(184L) } returns loadFixtureJson()
         every { garminActivityService.findExternalIdById(184L) } returns "22801381040"
-        every { ftpTestRepository.findEffectiveAt(any()) } returns 200.0
+        every { ftpService.findEffectiveAt(any()) } returns 200.0
         every { userProfileService.findLatestWeightKg() } returns 70.0
         val savedInputSlot = slot<RideInput>()
         every { rideRepository.save(capture(savedInputSlot)) } returns 42L
@@ -91,7 +91,7 @@ class RideComputeServiceTest {
     fun `compute stores null tss and intensityFactor when no FTP test exists at ride date`() {
         every { garminActivityService.findRawJsonById(1L) } returns loadFixtureJson()
         every { garminActivityService.findExternalIdById(1L) } returns "22801381040"
-        every { ftpTestRepository.findEffectiveAt(any()) } returns null
+        every { ftpService.findEffectiveAt(any()) } returns null
         every { userProfileService.findLatestWeightKg() } returns null
         val savedInputSlot = slot<RideInput>()
         every { rideRepository.save(capture(savedInputSlot)) } returns 1L
@@ -108,7 +108,7 @@ class RideComputeServiceTest {
     fun `compute suppresses RideCalculatedEvent when publishEvent is false`() {
         every { garminActivityService.findRawJsonById(1L) } returns loadFixtureJson()
         every { garminActivityService.findExternalIdById(1L) } returns "22801381040"
-        every { ftpTestRepository.findEffectiveAt(any()) } returns 250.0
+        every { ftpService.findEffectiveAt(any()) } returns 250.0
         every { userProfileService.findLatestWeightKg() } returns null
         every { rideRepository.save(any()) } returns 1L
 
@@ -122,7 +122,7 @@ class RideComputeServiceTest {
     fun `compute processes multiple activities independently`() {
         every { garminActivityService.findRawJsonById(any()) } returns loadFixtureJson()
         every { garminActivityService.findExternalIdById(any()) } returnsMany listOf("ext-10", "ext-20")
-        every { ftpTestRepository.findEffectiveAt(any()) } returns null
+        every { ftpService.findEffectiveAt(any()) } returns null
         every { userProfileService.findLatestWeightKg() } returns null
         every { rideRepository.save(any()) } returns 99L
         justRun { eventPublisher.publishEvent(any<Any>()) }

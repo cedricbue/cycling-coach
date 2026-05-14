@@ -1,7 +1,7 @@
 package com.cyclingcoach.ride
 
 import com.cyclingcoach.config.VIRTUAL_THREAD_EXECUTOR
-import com.cyclingcoach.ftp.FtpTestRepository
+import com.cyclingcoach.ftp.FtpService
 import com.cyclingcoach.garmin.activity.GarminActivityService
 import com.cyclingcoach.garmin.connect.client.GarminActivity
 import com.cyclingcoach.user.UserProfileService
@@ -17,7 +17,7 @@ class RideComputeService(
     private val garminActivityService: GarminActivityService,
     private val rideRepository: RideRepository,
     private val userProfileService: UserProfileService,
-    private val ftpTestRepository: FtpTestRepository,
+    private val ftpService: FtpService,
     private val eventPublisher: ApplicationEventPublisher,
     private val objectMapper: ObjectMapper,
 ) {
@@ -133,7 +133,7 @@ class RideComputeService(
         }
     }
 
-    private fun resolveRideFtp(rideDate: LocalDate): Double? = ftpTestRepository.findEffectiveAt(rideDate)
+    private fun resolveRideFtp(rideDate: LocalDate): Double? = ftpService.findEffectiveAt(rideDate)
 
     private fun parseGmtDate(startTimeGmt: String): LocalDate? = runCatching { LocalDate.parse(startTimeGmt.take(10)) }.getOrNull()
 }
