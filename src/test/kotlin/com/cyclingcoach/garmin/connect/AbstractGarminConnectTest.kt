@@ -4,10 +4,9 @@ import com.cyclingcoach.garmin.connect.client.GarminConnect
 import com.cyclingcoach.garmin.internal.GarminTokenStore
 import com.github.tomakehurst.wiremock.WireMockServer
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig
+import com.cyclingcoach.IntegrationTest
 import org.junit.jupiter.api.BeforeEach
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 
@@ -21,8 +20,7 @@ import org.springframework.test.context.DynamicPropertySource
  * Auth stubs (SSO login + DI token exchange) are set up via [GarminConnectWireMockHelper]
  * before each test.
  */
-@SpringBootTest
-@ActiveProfiles("test")
+@IntegrationTest
 abstract class AbstractGarminConnectTest {
     @Autowired
     lateinit var garminConnect: GarminConnect

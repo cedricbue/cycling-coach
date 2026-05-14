@@ -4,7 +4,6 @@ import com.cyclingcoach.AbstractApplicationIntegrationTest
 import com.cyclingcoach.generated.jooq.tables.references.TRAINING_LOAD
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.data.Offset
-import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import java.time.LocalDate
@@ -14,7 +13,6 @@ import java.time.LocalDate
  * when the training_load table has rows up to yesterday but not today, the controller call
  * must extend the EWMA chain through today (TSS=0 rest day) and include today in the response.
  */
-@Tag("integration")
 class PmcControllerIntegrationTest : AbstractApplicationIntegrationTest() {
     @Autowired
     private lateinit var pmcController: PmcController

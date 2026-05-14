@@ -14,7 +14,6 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.within
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import java.time.Duration
@@ -29,7 +28,6 @@ import java.time.LocalDate
  *  - PMC training load (CTL, ATL, TSB) for the ride date
  *  - User weight entries synced from Garmin
  */
-@Tag("integration")
 class GarminSyncPipelineIntegrationTest : AbstractApplicationIntegrationTest() {
     @Autowired
     private lateinit var garminSyncService: GarminSyncService

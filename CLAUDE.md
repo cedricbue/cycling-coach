@@ -88,6 +88,9 @@ user/               — UserProfile (single-row, id=1; holds auto-detected max_h
                       WeightRepository (upsert + point-in-time lookup). WeightController for /api/weight.
 settings/           — Read-only projection of Spring properties (@ConfigurationProperties).
                       AppSettings includes currentFtp (from ftp_test) and maxHrBpm (from user_profile).
+Profiles            — Top-level object (`Profiles.kt`) with string constants for every Spring profile:
+                      Profiles.TEST ("test") and Profiles.LOCAL ("local"). Lives in main source so
+                      both production beans and test annotations can import it without a test-scoped dep.
 ```
 
 Planned but not yet implemented (do not assume the package exists): `calendar/`, `coaching/`. AI integration is aspirational at this stage.
@@ -141,10 +144,16 @@ Reads go through `RideReadService` and `pmc/` queries.
 
 SQLite, managed by Flyway migrations in `src/main/resources/db/migration/`. jOOQ generates type-safe Kotlin classes from the live schema. No ORM; all queries go through jOOQ DSL.
 
-The schema is intentionally consolidated into a single `V1__init.sql` migration. The project is pre-release and single-user — when the schema needs to evolve, prefer extending V1 (with DB reset) over stacking incremental migrations, until the first production deployment.
+The schema is split into two migrations by domain:
+- **`V1__init.sql`** — core application domain: `ride`, `user_profile`, `user_weight`, `ftp_test`, `training_load`
+- **`V2__garmin.sql`** — Garmin Connect integration: `garmin_activity`, `garmin_token`, `garmin_activity_sync_cursor`, `garmin_weight`, `garmin_weight_sync_cursor`
 
-**Schema change workflow (post-V1):**
-1. Add a new `V{N}__description.sql` migration file
+`ride.activity_id` has a FK to `garmin_activity.id` (defined in V1, referencing a table created in V2). SQLite does not validate FK target existence at DDL time — only at DML time — so the ordering is safe.
+
+The project is pre-release and single-user — when the schema needs to evolve, prefer editing V1/V2 with a DB reset over stacking new migrations, until the first production deployment.
+
+**Schema change workflow:**
+1. Add a new `V{N}__description.sql` migration file (or edit V1/V2 and reset the DB)
 2. Apply it to the local DB — either let `./mvnw spring-boot:run` apply it on startup, or run `sqlite3 data/cycling-coach.db < src/main/resources/db/migration/V{N}__description.sql` manually
 3. If applied manually, also register it in `flyway_schema_history` — Flyway validates checksums on every build and will fail with `checksum mismatch` if a migration exists in the DB but not in the history table
 4. Run `./mvnw jooq-codegen:generate` to regenerate jOOQ classes
@@ -170,7 +179,11 @@ Spring AI with Ollama and Anthropic as **switchable providers** (not a fallback 
 ### Testing
 
 - Backend unit tests: MockK (not Mockito), tagged `@Tag("unit")`, test one service method in isolation
-- Backend integration tests: `@SpringBootTest` + WireMock for Garmin/external APIs; real SQLite for DB round-trips. Notable suites:
+- Backend integration tests: two base classes, both annotated with `@IntegrationTest` (the project's meta-annotation that composes `@SpringBootTest + @ActiveProfiles(Profiles.TEST) + @Tag("integration")`). Concrete test classes must **not** redeclare any of these three annotations — they inherit all three via the base.
+  - `AbstractApplicationIntegrationTest` — full application context + WireMock + jOOQ DSL + `@BeforeEach resetState()` that truncates all tables. Use for tests that exercise the full pipeline (sync → ride → PMC).
+  - `AbstractGarminConnectTest` — lighter context targeting only the Garmin Connect HTTP client. Provides `garminConnect`, `garminTokenStore`, and WireMock. Does **not** truncate DB tables — tests that write to specific tables must add their own `@BeforeEach cleanDatabase()`. Used by `GarminWeightSyncIntegrationTest`, `GarminActivityImportIntegrationTest`, and `GarminClientIntegrationTest`.
+  - `ProfileEnforcementTest` — `@Tag("unit")` reflective test that scans the classpath and fails if any `@SpringBootTest` class (including through superclass inheritance) is missing `@ActiveProfiles(Profiles.TEST)`. Prevents future regressions without Spring context overhead.
+- Notable integration suites:
   - `GarminSyncPipelineIntegrationTest` — full sync → ride → PMC → weight pipeline
   - `FtpBackfillIntegrationTest` — FTP test detected after rides exist → backfill produces correct TSS for later rides
   - `PmcControllerIntegrationTest` — `ensureUpToDate()` extends chain on rest days

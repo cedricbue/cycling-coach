@@ -1,28 +1,30 @@
 package com.cyclingcoach.garmin.connect.weight
 
-import com.cyclingcoach.AbstractApplicationIntegrationTest
-import com.cyclingcoach.garmin.connect.client.GarminConnect
+import com.cyclingcoach.garmin.connect.AbstractGarminConnectTest
 import com.cyclingcoach.generated.jooq.tables.references.GARMIN_WEIGHT
+import com.cyclingcoach.generated.jooq.tables.references.GARMIN_WEIGHT_SYNC_CURSOR
 import com.github.tomakehurst.wiremock.client.WireMock.aResponse
 import com.github.tomakehurst.wiremock.client.WireMock.get
 import com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo
 import org.assertj.core.api.Assertions.assertThat
+import org.jooq.DSLContext
 import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.test.context.event.ApplicationEvents
 import org.springframework.test.context.event.RecordApplicationEvents
 import java.time.LocalDate
 
-@Tag("integration")
 @RecordApplicationEvents
-class GarminWeightSyncIntegrationTest : AbstractApplicationIntegrationTest() {
-    @Autowired
-    private lateinit var garminConnect: GarminConnect
-
+class GarminWeightSyncIntegrationTest : AbstractGarminConnectTest() {
     @Autowired
     private lateinit var garminWeightSyncService: GarminWeightSyncService
+
+    @Autowired
+    private lateinit var weightSyncCursorRepository: GarminWeightSyncCursorRepository
+
+    @Autowired
+    private lateinit var dsl: DSLContext
 
     @Autowired
     lateinit var applicationEvents: ApplicationEvents
@@ -32,6 +34,12 @@ class GarminWeightSyncIntegrationTest : AbstractApplicationIntegrationTest() {
             .getResourceAsStream("/fixtures/garmin/weight_three_entries.json")!!
             .bufferedReader()
             .readText()
+    }
+
+    @BeforeEach
+    fun cleanDatabase() {
+        dsl.deleteFrom(GARMIN_WEIGHT).execute()
+        dsl.deleteFrom(GARMIN_WEIGHT_SYNC_CURSOR).execute()
     }
 
     @BeforeEach
