@@ -7,17 +7,17 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-class RidesController(
-    private val rideReadService: RideReadService,
+internal class RidesController(
+    private val rideService: RideService,
 ) : RidesApi {
     override fun listRides(
         page: Int,
         size: Int,
-    ): ResponseEntity<RidePage> = ResponseEntity.ok(rideReadService.listRides(page, size))
+    ): ResponseEntity<RidePage> = ResponseEntity.ok(rideService.listRides(page, size))
 
     override fun getRide(id: Long): ResponseEntity<RideDetail> {
         val ride =
-            rideReadService.getRide(id)
+            rideService.getRide(id)
                 ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(ride)
     }
