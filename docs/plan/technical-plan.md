@@ -23,7 +23,8 @@ FTP detection, user profile, settings, and the frontend.
 | SQL | jOOQ 3.19.32 | Type-safe queries, code generation from Flyway schema |
 | Migrations | Flyway 11.x | Versioned schema migrations; SQLite supported in core |
 | Database | SQLite (org.xerial:sqlite-jdbc) | File-based, WAL mode, backup-friendly, no server |
-| AI Integration | Spring AI (planned) | Ollama and Anthropic as switchable options (not fallback) |
+| AI Integration | Spring AI 2.0.0-M6 | Anthropic and Ollama switchable via `AI_PROVIDER` env var. Daily coaching recommendation. |
+| Weather | Open-Meteo API | Free, no API key — lat/lon only. Abstracted behind `WeatherProvider` interface. |
 | Job Scheduling | Spring `@Scheduled` | Built-in; 6h default interval |
 | Async Execution | `@Async(VIRTUAL_THREAD_EXECUTOR)` | Virtual threads for event listeners and parallel ride compute |
 | TCX Parsing | JDK DOM/XPath (`javax.xml.xpath`) | Framework-agnostic, reusable standalone |
@@ -137,18 +138,41 @@ com.cyclingcoach
 ├── settings/                # Read-only settings projection
 │   ├── SettingsController.kt       # implements generated SettingsApi
 │   ├── SettingsService.kt          # currentFtp from ftp_test, maxHrBpm from user_profile,
-│   │                                # zone thresholds from properties
+│   │                                # zone thresholds from properties, aiProvider/aiModel from AiProperties
 │   └── SettingsProperties.kt       # @ConfigurationProperties(prefix="cycling")
+│
+├── weather/                 # Weather abstraction — provider interface + implementations
+│   ├── WeatherProvider.kt          # interface: fetchWeather(lat, lon): WeatherData
+│   ├── WeatherData.kt              # data class: hourly temps/precip/wind/gusts, sunrise/sunset,
+│   │                                # computed: minTemp, maxPrecipProb, maxWindGust, wouldBeDark
+│   └── OpenMeteoClient.kt          # @Component implementing WeatherProvider via Open-Meteo free API
+│                                    # (no API key; lat/lon only). Uses OkHttp + Jackson.
+│                                    # Future providers: implement WeatherProvider, register as @Primary
+│                                    # or use @ConditionalOnProperty to switch without code changes.
+│
+├── coaching/                # AI daily training recommendation
+│   ├── CoachingController.kt       # implements generated CoachingApi (GET /api/coaching/recommendation)
+│   ├── CoachingService.kt          # orchestrator: cache check → weather → PMC/FTP/rides context
+│   │                                # → prompt build → AI call → JSON parse → DB upsert → return DTO
+│   │                                # Injects WeatherProvider (not OpenMeteoClient) — swappable.
+│   ├── DailyRecommendationRepository.kt  # jOOQ: findByDate(LocalDate), upsert()
+│   └── OllamaHealthChecker.kt      # checks Ollama reachability at startup, logs WARN if down
 │
 └── CyclingCoachApplication.kt
 ```
+
+`config/` now also contains:
+- `AiConfig.kt` — `@Configuration` bean creating `ChatClient` from the active provider
+  (reads `ai.provider` env var; injected with nullable `AnthropicChatModel?` and `OllamaChatModel?`
+  to avoid startup failure when only one provider is configured). Runs Ollama health check on `@PostConstruct`.
+- `AiProperties.kt` — `@ConfigurationProperties(prefix="ai")` with `provider` and `model` fields.
 
 Garmin packages (`garmin/`, `garmin/connect/`, `garmin/internal/`) are documented in
 [`garmin-connect-integration.md`](garmin-connect-integration.md). Application packages
 listed above have **no compile-time imports** from `garmin.connect.*` — they receive
 integration data exclusively via Spring events.
 
-Planned but not yet implemented: `calendar/`, `coaching/`, `nutrition/`.
+Planned but not yet implemented: `calendar/`, `nutrition/`.
 
 Generated output (do not edit): `target/generated-sources/openapi/` and `target/generated-sources/jooq/`.
 

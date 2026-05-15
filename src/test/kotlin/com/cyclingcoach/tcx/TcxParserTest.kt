@@ -1,5 +1,6 @@
 package com.cyclingcoach.tcx
 
+import com.cyclingcoach.readFixture
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.data.Offset
 import org.junit.jupiter.api.Tag
@@ -9,11 +10,7 @@ import org.junit.jupiter.api.Test
 class TcxParserTest {
     private val parser = TcxParser()
 
-    private fun loadFixture(name: String): String =
-        TcxParserTest::class.java
-            .getResourceAsStream("/fixtures/garmin/$name")!!
-            .bufferedReader()
-            .readText()
+    private fun loadFixture(name: String): String = readFixture("/fixtures/garmin/$name")
 
     @Test
     fun `supports returns true for TCX content`() {

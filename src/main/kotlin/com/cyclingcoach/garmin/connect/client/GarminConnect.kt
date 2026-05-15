@@ -2,7 +2,6 @@ package com.cyclingcoach.garmin.connect.client
 
 import com.cyclingcoach.garmin.connect.client.internal.GarminAuthService
 import com.cyclingcoach.garmin.connect.client.internal.GarminHttpClient
-import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.slf4j.LoggerFactory
 import java.time.LocalDate
@@ -16,11 +15,11 @@ import java.time.LocalDate
 class GarminConnect(
     private val config: GarminConfig,
     private val tokenStore: TokenStore,
+    private val mapper: ObjectMapper,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val http = GarminHttpClient()
     private val auth = GarminAuthService(config, http)
-    private val mapper = ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
     @Volatile
     private var credentials: Pair<String, String>? = null

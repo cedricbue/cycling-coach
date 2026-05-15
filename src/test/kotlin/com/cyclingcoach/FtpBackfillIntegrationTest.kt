@@ -25,26 +25,9 @@ class FtpBackfillIntegrationTest : AbstractApplicationIntegrationTest() {
     @Autowired
     private lateinit var garminSyncService: GarminSyncService
 
-    private val normalRideJson by lazy {
-        javaClass
-            .getResourceAsStream("/fixtures/garmin/activity_22801381040.json")!!
-            .bufferedReader()
-            .readText()
-    }
-
-    private val normalRideTcx by lazy {
-        javaClass
-            .getResourceAsStream("/fixtures/garmin/activity_22801381040.tcx")!!
-            .bufferedReader()
-            .readText()
-    }
-
-    private val ftpTestJson by lazy {
-        javaClass
-            .getResourceAsStream("/fixtures/garmin/activity_ftp_test_20260419.json")!!
-            .bufferedReader()
-            .readText()
-    }
+    private val normalRideJson by lazy { readFixture("/fixtures/garmin/activity_22801381040.json") }
+    private val normalRideTcx by lazy { readFixture("/fixtures/garmin/activity_22801381040.tcx") }
+    private val ftpTestJson by lazy { readFixture("/fixtures/garmin/activity_ftp_test_20260419.json") }
 
     // ---- helpers ----
 

@@ -5,6 +5,7 @@ import com.cyclingcoach.generated.model.AppSettings
 import com.cyclingcoach.generated.model.HrZoneSettings
 import com.cyclingcoach.generated.model.PowerZoneSettings
 import com.cyclingcoach.user.UserProfileService
+import org.springframework.ai.model.ollama.autoconfigure.OllamaChatProperties
 import org.springframework.stereotype.Service
 import java.time.LocalDate
 
@@ -13,12 +14,15 @@ class SettingsService(
     private val props: SettingsProperties,
     private val userProfileService: UserProfileService,
     private val ftpService: FtpService,
+    private val ollamaChatProperties: OllamaChatProperties,
 ) {
     fun getAppSettings(): AppSettings {
         val p = props.zones.power
         val h = props.zones.hr
 
         return AppSettings(
+            aiProvider = AppSettings.AiProvider.OLLAMA,
+            aiModel = ollamaChatProperties.model,
             currentFtp = ftpService.findEffectiveAt(LocalDate.now()),
             weightKg = userProfileService.findLatestWeightKg(),
             maxHrBpm = userProfileService.findMaxHr(),

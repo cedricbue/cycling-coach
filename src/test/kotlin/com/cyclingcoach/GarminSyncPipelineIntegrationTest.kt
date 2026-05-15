@@ -38,26 +38,9 @@ class GarminSyncPipelineIntegrationTest : AbstractApplicationIntegrationTest() {
     @Autowired
     private lateinit var userProfileService: UserProfileService
 
-    private val activityJson by lazy {
-        javaClass
-            .getResourceAsStream("/fixtures/garmin/activity_22801381040.json")!!
-            .bufferedReader()
-            .readText()
-    }
-
-    private val activityTcx by lazy {
-        javaClass
-            .getResourceAsStream("/fixtures/garmin/activity_22801381040.tcx")!!
-            .bufferedReader()
-            .readText()
-    }
-
-    private val weightJson by lazy {
-        javaClass
-            .getResourceAsStream("/fixtures/garmin/weight_three_entries.json")!!
-            .bufferedReader()
-            .readText()
-    }
+    private val activityJson by lazy { readFixture("/fixtures/garmin/activity_22801381040.json") }
+    private val activityTcx by lazy { readFixture("/fixtures/garmin/activity_22801381040.tcx") }
+    private val weightJson by lazy { readFixture("/fixtures/garmin/weight_three_entries.json") }
 
     @BeforeEach
     fun setup() {

@@ -23,6 +23,8 @@ tags:
     description: Body weight history (synced from Garmin)
   - name: settings
     description: Read-only application settings (configured via application.yml)
+  - name: coaching
+    description: AI coaching — ride analysis and daily training recommendations
 
 paths:
 
@@ -199,6 +201,44 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CoachingResponse"
+
+  /api/coaching/recommendation:
+    get:
+      tags: [ coaching ]
+      operationId: getDailyRecommendation
+      summary: Get today's AI-powered training recommendation (OUTDOOR / OUTDOOR_FUN / INDOOR / REST)
+      parameters:
+        - name: lat
+          in: query
+          required: false
+          schema:
+            type: number
+            format: double
+        - name: lon
+          in: query
+          required: false
+          schema:
+            type: number
+            format: double
+        - name: regenerate
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Today's training recommendation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyRecommendation"
+        "503":
+          description: AI provider unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   # ── Settings ─────────────────────────────────────────────────────────────────
 
@@ -507,6 +547,32 @@ components:
           type: string
           format: date-time
 
+    DailyRecommendation:
+      type: object
+      required: [ date, type, content, reason, generatedAt, aiProvider ]
+      properties:
+        date:
+          type: string
+          format: date
+        type:
+          type: string
+          enum: [ OUTDOOR, OUTDOOR_FUN, INDOOR, REST ]
+        content:
+          type: string
+          description: Structured workout — zones/duration for OUTDOOR, Zwift workout for INDOOR, recovery advice for REST, free ride for OUTDOOR_FUN
+        reason:
+          type: string
+          description: Coach's explanation of why this type was chosen (key metrics / rule that triggered)
+        weatherSummary:
+          type: string
+          description: Human-readable summary of weather conditions used in the decision
+        generatedAt:
+          type: string
+          format: date-time
+        aiProvider:
+          type: string
+          description: Which AI provider generated this (e.g. ollama/gemma4:latest)
+
     # Settings
 
     PowerZoneSettings:
@@ -549,7 +615,7 @@ components:
       properties:
         aiProvider:
           type: string
-          enum: [ ollama, anthropic ]
+          enum: [ ollama ]
         aiModel:
           type: string
         currentFtp:
