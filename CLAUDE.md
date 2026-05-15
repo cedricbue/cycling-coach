@@ -58,6 +58,13 @@ Currently implemented packages:
 
 ```
 config/             — Spring async (virtual thread executor), Garmin client wiring, web config.
+                      AiConfig wires the OllamaChatClient @Bean and on @PostConstruct calls
+                      OllamaLauncher.ensureRunningAndPull(model) to verify Ollama is up and the
+                      model is pulled before the first request. AiProperties
+                      (@ConfigurationProperties prefix="ai") exposes model name to SettingsController.
+ai/                 — OllamaLauncher: checks if Ollama is reachable at the configured base-url; if not,
+                      spawns `ollama serve` as a child process, then pulls the configured model.
+                      Isolated from Spring — called only by AiConfig on startup.
 ride/               — Raw activity ingestion + computed cycling metrics (NP, IF, TSS, best powers).
                       RideComputeService computes; RideService orchestrates and serves API reads.
                       RideEventListener (@Async) handles GarminActivityStoredEvent → compute,
@@ -101,9 +108,6 @@ coaching/           — AI-powered daily training recommendation. CoachingServic
                       Cached per calendar day in daily_recommendation table; regenerated on request.
                       CoachingController implements GET /api/coaching/recommendation.
                       WeatherProvider, not OpenMeteoClient directly, is injected into CoachingService.
-config/             — Spring async, Garmin client wiring, web config, AiConfig (ChatClient bean
-                      selecting Anthropic or Ollama by AI_PROVIDER env var), AiProperties
-                      (@ConfigurationProperties prefix="ai").
 Profiles            — Top-level object (`Profiles.kt`) with string constants for every Spring profile:
                       Profiles.TEST ("test") and Profiles.LOCAL ("local"). Lives in main source so
                       both production beans and test annotations can import it without a test-scoped dep.
@@ -154,24 +158,24 @@ Reads go through `RideService` and `pmc/` queries.
 - **Power zones** are computed as percentages of FTP (Coggan 7-zone model).
 - Garmin credentials are **never stored** — only the DI OAuth2 tokens from a successful SSO login (`garmin_token` table).
 - The `user_profile` table always has exactly one row (id = 1).
-- AI responses (when implemented) will be **persisted on first call** — the AI is not re-invoked for the same resource unless the user explicitly regenerates.
+- **Daily recommendation caching**: `CoachingService` persists the AI-generated recommendation in `daily_recommendation` keyed by calendar day — the AI is not re-invoked for the same day unless `?regenerate=true` is passed.
 
 ### Database
 
 SQLite, managed by Flyway migrations in `src/main/resources/db/migration/`. jOOQ generates type-safe Kotlin classes from the live schema. No ORM; all queries go through jOOQ DSL.
 
-The schema is split into two migrations by domain:
-- **`V1__init.sql`** — core application domain: `ride`, `user_profile`, `user_weight`, `ftp_test`, `training_load`
-- **`V2__garmin.sql`** — Garmin Connect integration: `garmin_activity`, `garmin_token`, `garmin_activity_sync_cursor`, `garmin_weight`, `garmin_weight_sync_cursor`
+All schema lives in a single migration file — **`V1__init.sql`** — which creates all tables:
+`ride`, `user_profile`, `user_weight`, `ftp_test`, `training_load`, `garmin_activity`, `garmin_token`,
+`garmin_activity_sync_cursor`, `garmin_weight`, `garmin_weight_sync_cursor`, `daily_recommendation`.
 
-`ride.activity_id` has a FK to `garmin_activity.id` (defined in V1, referencing a table created in V2). SQLite does not validate FK target existence at DDL time — only at DML time — so the ordering is safe.
+`ride.activity_id` has a FK to `garmin_activity.id`. SQLite does not validate FK target existence at DDL time — only at DML time — so declaration order within the file is safe.
 
-The project is pre-release and single-user — when the schema needs to evolve, prefer editing V1/V2 with a DB reset over stacking new migrations, until the first production deployment.
+The project is pre-release and single-user — when the schema needs to evolve, edit `V1__init.sql` directly and reset the DB rather than stacking new migrations, until the first production deployment.
 
 **Schema change workflow:**
-1. Add a new `V{N}__description.sql` migration file (or edit V1/V2 and reset the DB)
-2. Apply it to the local DB — either let `./mvnw spring-boot:run` apply it on startup, or run `sqlite3 data/cycling-coach.db < src/main/resources/db/migration/V{N}__description.sql` manually
-3. If applied manually, also register it in `flyway_schema_history` — Flyway validates checksums on every build and will fail with `checksum mismatch` if a migration exists in the DB but not in the history table
+1. Edit `V1__init.sql` directly
+2. Delete `./data/cycling-coach.db` to reset the DB
+3. Run `./mvnw spring-boot:run` — Flyway recreates the schema on startup
 4. Run `./mvnw jooq-codegen:generate` to regenerate jOOQ classes
 
 jOOQ maps SQLite INTEGER primary keys as `Int?` in generated record classes — cast with `.toLong()` when your domain model uses `Long`.
@@ -181,7 +185,7 @@ jOOQ maps SQLite INTEGER primary keys as `Int?` in generated record classes — 
 Angular 21 with NgRx. NgRx state lives in `+state/` inside each feature directory (the `+` prefix keeps it sorted to the top). HTTP calls come exclusively from the generated services in `core/api/` — no hand-written `HttpClient` calls. Spring Boot serves the Angular build from `src/main/resources/static/` (output of `ng build`).
 
 Feature directories under `frontend/src/app/features/`:
-- `dashboard/` — KPI cards (CTL/ATL/TSB/FTP), PMC chart (CTL/ATL/TSB only — no FTP/W·kg line), recent rides
+- `dashboard/` — KPI cards (CTL/ATL/TSB/FTP), PMC chart (CTL/ATL/TSB only — no FTP/W·kg line), recent rides, daily training recommendation card (OUTDOOR / OUTDOOR_FUN / INDOOR / REST with weather summary). Recommendation is requested with browser Geolocation coords; falls back to `COACHING_LAT`/`COACHING_LON` server-side. Result is cached in NgRx store for 5 minutes.
 - `rides/` — list + detail
 - `activities/` — sync button
 - `user-profile/` — tabs (FTP history with link to ride detail, weight history), deeplinkable via `?tab=ftp|weight`
@@ -190,7 +194,7 @@ Feature directories under `frontend/src/app/features/`:
 
 ### AI Integration
 
-Spring AI with Ollama and Anthropic as **switchable providers** (not a fallback chain). Controlled via `AI_PROVIDER=ollama|anthropic` and `AI_MODEL=...` environment variables. A `coaching/` package is planned to own all AI calls but does not yet exist in the codebase.
+Spring AI with **Ollama as the sole provider** (Anthropic not yet wired). Model and base URL are configured via `AI_MODEL` (default: `gemma4:latest`) and `OLLAMA_BASE_URL` (default: `http://localhost:11434`) environment variables. On startup, `OllamaLauncher` ensures Ollama is running and the model is pulled before the first request. The `coaching/` package owns all AI calls — see its package entry above.
 
 ### Testing
 
@@ -227,3 +231,8 @@ Cycling metrics implemented in the `ride/` package:
 ## Configuration
 
 All runtime config via `application.yml` or environment variables — there is no write API for settings. Zone thresholds live under `cycling.zones.power.*` (% of FTP) and `cycling.zones.hr.*` (% of max HR). Frontend reads current config from `GET /api/settings`, which also includes `currentFtp` (from `ftp_test`) and `maxHrBpm` (from `user_profile`).
+
+AI / coaching env vars:
+- `OLLAMA_BASE_URL` (default: `http://localhost:11434`) — Ollama server address
+- `AI_MODEL` (default: `gemma4:latest`) — model to pull and use
+- `COACHING_LAT` / `COACHING_LON` — latitude/longitude for weather fetch; required when browser Geolocation is unavailable or denied
