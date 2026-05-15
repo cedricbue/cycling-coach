@@ -18,6 +18,8 @@ class TrainingLoadService(
         }
     }
 
+    fun findByDate(date: LocalDate): TrainingLoadRow? = trainingLoadRepository.findByDate(date)
+
     fun findBetween(
         from: LocalDate?,
         to: LocalDate?,

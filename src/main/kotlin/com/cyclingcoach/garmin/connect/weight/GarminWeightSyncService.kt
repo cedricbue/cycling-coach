@@ -4,7 +4,6 @@ import com.cyclingcoach.config.VIRTUAL_THREAD_EXECUTOR
 import com.cyclingcoach.garmin.GarminProperties
 import com.cyclingcoach.garmin.GarminSyncable
 import com.cyclingcoach.garmin.connect.client.GarminConnect
-import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Async
@@ -18,9 +17,9 @@ class GarminWeightSyncService(
     private val garminWeightService: GarminWeightService,
     private val garminProperties: GarminProperties,
     private val syncCursorRepository: GarminWeightSyncCursorRepository,
+    private val mapper: ObjectMapper,
 ) : GarminSyncable {
     private val log = LoggerFactory.getLogger(javaClass)
-    private val mapper = ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
     override val name: String = "weight"
 

@@ -1,6 +1,7 @@
 package com.cyclingcoach.garmin.connect.activity
 
 import com.cyclingcoach.garmin.activity.GarminActivityStoredEvent
+import com.cyclingcoach.readFixture
 import com.cyclingcoach.garmin.connect.AbstractGarminConnectTest
 import com.cyclingcoach.generated.jooq.tables.references.GARMIN_ACTIVITY
 import com.cyclingcoach.generated.jooq.tables.references.RIDE
@@ -34,19 +35,8 @@ class GarminActivityImportIntegrationTest : AbstractGarminConnectTest() {
     /** Activity ID matching the fixtures in src/test/resources/fixtures/garmin/ */
     private val activityId = 22801381040L
 
-    private val activityJson: String by lazy {
-        javaClass
-            .getResourceAsStream("/fixtures/garmin/activity_22801381040.json")!!
-            .bufferedReader()
-            .readText()
-    }
-
-    private val activityTcx: String by lazy {
-        javaClass
-            .getResourceAsStream("/fixtures/garmin/activity_22801381040.tcx")!!
-            .bufferedReader()
-            .readText()
-    }
+    private val activityJson: String by lazy { readFixture("/fixtures/garmin/activity_22801381040.json") }
+    private val activityTcx: String by lazy { readFixture("/fixtures/garmin/activity_22801381040.tcx") }
 
     @BeforeEach
     fun cleanDatabase() {

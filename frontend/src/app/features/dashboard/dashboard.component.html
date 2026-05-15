@@ -5,6 +5,16 @@
     </div>
   }
 
+  <!-- Daily AI Recommendation -->
+  <div class="recommendation-section">
+    <app-recommendation-card
+      [recommendation]="recommendation()"
+      [loading]="recommendationLoading()"
+      [error]="recommendationError()"
+      (regenerate)="onRegenerate()"
+    />
+  </div>
+
   <!-- Metric cards row -->
   <div class="metrics-row">
     <app-metric-card

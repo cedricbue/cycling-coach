@@ -1,6 +1,7 @@
 package com.cyclingcoach.garmin.connect.weight
 
 import com.cyclingcoach.garmin.connect.AbstractGarminConnectTest
+import com.cyclingcoach.readFixture
 import com.cyclingcoach.generated.jooq.tables.references.GARMIN_WEIGHT
 import com.cyclingcoach.generated.jooq.tables.references.GARMIN_WEIGHT_SYNC_CURSOR
 import com.github.tomakehurst.wiremock.client.WireMock.aResponse
@@ -29,12 +30,7 @@ class GarminWeightSyncIntegrationTest : AbstractGarminConnectTest() {
     @Autowired
     lateinit var applicationEvents: ApplicationEvents
 
-    private val threeEntriesJson: String by lazy {
-        javaClass
-            .getResourceAsStream("/fixtures/garmin/weight_three_entries.json")!!
-            .bufferedReader()
-            .readText()
-    }
+    private val threeEntriesJson: String by lazy { readFixture("/fixtures/garmin/weight_three_entries.json") }
 
     @BeforeEach
     fun cleanDatabase() {

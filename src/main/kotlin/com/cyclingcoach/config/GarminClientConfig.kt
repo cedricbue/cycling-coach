@@ -4,6 +4,7 @@ import com.cyclingcoach.garmin.GarminProperties
 import com.cyclingcoach.garmin.connect.client.GarminConfig
 import com.cyclingcoach.garmin.connect.client.GarminConnect
 import com.cyclingcoach.garmin.connect.client.TokenStore
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
@@ -23,5 +24,6 @@ class GarminClientConfig {
     fun garminClient(
         garminConfig: GarminConfig,
         tokenStore: TokenStore,
-    ): GarminConnect = GarminConnect(garminConfig, tokenStore)
+        objectMapper: ObjectMapper,
+    ): GarminConnect = GarminConnect(garminConfig, tokenStore, objectMapper)
 }

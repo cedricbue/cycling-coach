@@ -1,0 +1,144 @@
+:host {
+  display: block;
+}
+
+.recommendation-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-left: 4px solid transparent;
+
+  &.accent-green  { border-left-color: #4caf50; }
+  &.accent-teal   { border-left-color: #009688; }
+  &.accent-blue   { border-left-color: #3f51b5; }
+  &.accent-orange { border-left-color: #ff9800; }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    .title-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      .title-icon {
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+        color: var(--mat-sys-on-surface-variant);
+      }
+
+      h3 {
+        margin: 0;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: var(--mat-sys-on-surface-variant);
+      }
+    }
+  }
+
+  .loading-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--mat-sys-on-surface-variant);
+    font-size: 14px;
+    padding: 8px 0;
+  }
+
+  .error-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    color: var(--mat-sys-error);
+    font-size: 13px;
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+  }
+
+  .retry-btn {
+    align-self: flex-start;
+    font-size: 13px;
+  }
+
+  // Badge and reason on the same line
+  .badge-reason-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .type-badge {
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    background: var(--mat-sys-surface-variant);
+    color: var(--mat-sys-on-surface-variant);
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+
+  .reason {
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--mat-sys-on-surface-variant);
+    font-style: italic;
+  }
+
+  .content {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--mat-sys-on-surface);
+    white-space: pre-line;
+  }
+
+  // Weather + meta on one line
+  .footer-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: var(--mat-sys-on-surface-variant);
+    opacity: 0.75;
+  }
+
+  .weather-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .weather-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+  }
+
+  .footer-sep {
+    opacity: 0.5;
+  }
+
+  .meta {
+    font-size: 12px;
+  }
+
+  .empty-row {
+    font-size: 13px;
+    color: var(--mat-sys-on-surface-variant);
+    font-style: italic;
+  }
+}

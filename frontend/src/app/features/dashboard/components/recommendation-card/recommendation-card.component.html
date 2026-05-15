@@ -1,0 +1,53 @@
+<div class="recommendation-card cc-card" [class]="accentClass">
+  <div class="card-header">
+    <div class="title-row">
+      <mat-icon class="title-icon">{{ typeIcon }}</mat-icon>
+      <h3>Today's Training</h3>
+    </div>
+    <button
+      mat-icon-button
+      (click)="regenerate.emit()"
+      [disabled]="loading()"
+      matTooltip="Regenerate recommendation"
+      aria-label="Regenerate recommendation"
+    >
+      <mat-icon>refresh</mat-icon>
+    </button>
+  </div>
+
+  @if (loading()) {
+    <div class="loading-row">
+      <mat-spinner diameter="28" />
+      <span>Asking your coach…</span>
+    </div>
+  } @else if (error()) {
+    <div class="error-row">
+      <mat-icon>warning_amber</mat-icon>
+      <span>{{ error() }}</span>
+    </div>
+    <button mat-stroked-button class="retry-btn" (click)="regenerate.emit()">
+      <mat-icon>refresh</mat-icon>
+      Retry
+    </button>
+  } @else if (recommendation()) {
+    <div class="badge-reason-row">
+      <span class="type-badge">{{ typeLabel }}</span>
+      @if (recommendation()!.reason) {
+        <span class="reason">{{ recommendation()!.reason }}</span>
+      }
+    </div>
+    <div class="content">{{ recommendation()!.content }}</div>
+    <div class="footer-row">
+      @if (recommendation()!.weatherSummary) {
+        <span class="weather-item">
+          <mat-icon class="weather-icon">cloud</mat-icon>
+          {{ recommendation()!.weatherSummary }}
+        </span>
+        <span class="footer-sep">&middot;</span>
+      }
+      <span class="meta">{{ recommendation()!.aiProvider }} &middot; {{ recommendation()!.generatedAt | date:'shortTime' }}</span>
+    </div>
+  } @else {
+    <div class="empty-row">No recommendation yet — allow location access and it will appear here.</div>
+  }
+</div>

@@ -1,6 +1,7 @@
 package com.cyclingcoach.ride
 
 import com.cyclingcoach.ftp.FtpService
+import com.cyclingcoach.readFixture
 import com.cyclingcoach.garmin.activity.GarminActivityService
 import com.cyclingcoach.user.UserProfileService
 import io.mockk.every
@@ -36,11 +37,7 @@ class RideComputeServiceTest {
 
     private val fixtureDate = LocalDate.parse("2026-05-07")
 
-    private fun loadFixtureJson(): String =
-        RideComputeServiceTest::class.java
-            .getResourceAsStream("/fixtures/garmin/activity_22801381040.json")!!
-            .bufferedReader()
-            .readText()
+    private fun loadFixtureJson(): String = readFixture("/fixtures/garmin/activity_22801381040.json")
 
     @Test
     fun `compute saves ride and publishes RideCalculatedEvent`() {

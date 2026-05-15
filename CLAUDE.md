@@ -87,13 +87,29 @@ user/               — UserProfile (single-row, id=1; holds auto-detected max_h
                         - @Async listener on GarminWeightStoredEvent → stores weight measurements
                       WeightRepository (upsert + point-in-time lookup). WeightController for /api/weight.
 settings/           — Read-only projection of Spring properties (@ConfigurationProperties).
-                      AppSettings includes currentFtp (from ftp_test) and maxHrBpm (from user_profile).
+                      AppSettings includes currentFtp (from ftp_test), maxHrBpm (from user_profile),
+                      and aiProvider/aiModel (from AiProperties in config/).
+weather/            — Weather abstraction layer. WeatherProvider interface is the sole dependency
+                      for any code that needs weather data. OpenMeteoClient (@Component) implements it
+                      using the Open-Meteo free API (no API key, lat/lon only). WeatherData holds
+                      hourly temps, precipitation probability, wind speed/gusts, sunrise/sunset and
+                      computes wouldBeDark (workout window now → now+3h crosses sunset).
+                      Future providers (OpenWeatherMap, mock for tests) implement WeatherProvider only.
+coaching/           — AI-powered daily training recommendation. CoachingService orchestrates:
+                      cache lookup → weather fetch → PMC/FTP/ride context → AI prompt → parse → DB.
+                      Recommendations are OUTDOOR, OUTDOOR_FUN, INDOOR (Zwift), or REST.
+                      Cached per calendar day in daily_recommendation table; regenerated on request.
+                      CoachingController implements GET /api/coaching/recommendation.
+                      WeatherProvider, not OpenMeteoClient directly, is injected into CoachingService.
+config/             — Spring async, Garmin client wiring, web config, AiConfig (ChatClient bean
+                      selecting Anthropic or Ollama by AI_PROVIDER env var), AiProperties
+                      (@ConfigurationProperties prefix="ai").
 Profiles            — Top-level object (`Profiles.kt`) with string constants for every Spring profile:
                       Profiles.TEST ("test") and Profiles.LOCAL ("local"). Lives in main source so
                       both production beans and test annotations can import it without a test-scoped dep.
 ```
 
-Planned but not yet implemented (do not assume the package exists): `calendar/`, `coaching/`. AI integration is aspirational at this stage.
+Planned but not yet implemented (do not assume the package exists): `calendar/`.
 
 Generated output (DO NOT EDIT): `target/generated-sources/openapi/` and `target/generated-sources/jooq/`.
 

@@ -47,6 +47,21 @@ export const selectAppSettings = createSelector(
   (s) => s.appSettings
 );
 
+export const selectRecommendation = createSelector(
+  selectDashboardState,
+  (s) => s.recommendation
+);
+
+export const selectRecommendationLoading = createSelector(
+  selectDashboardState,
+  (s) => s.recommendationLoading
+);
+
+export const selectRecommendationError = createSelector(
+  selectDashboardState,
+  (s) => s.recommendationError
+);
+
 /** FTP in W/kg — null if either weight or FTP is unknown */
 export const selectFtpPerKg = createSelector(
   selectCurrentFtp,

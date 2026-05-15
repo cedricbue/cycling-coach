@@ -2,7 +2,6 @@ package com.cyclingcoach.user
 
 import com.cyclingcoach.garmin.connect.client.GarminWeightEntry
 import com.cyclingcoach.garmin.connect.weight.GarminWeightStoredEvent
-import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -12,9 +11,9 @@ import java.time.LocalDate
 class UserProfileService(
     private val weightRepository: WeightRepository,
     private val userProfileRepository: UserProfileRepository,
+    private val mapper: ObjectMapper,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
-    private val mapper = ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
     fun findLatestWeightKg(): Double? = weightRepository.findLatestWeight()
 

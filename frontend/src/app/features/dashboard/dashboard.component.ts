@@ -10,10 +10,14 @@ import {
   selectPmcData,
   selectRecentRides,
   selectFtpPerKg,
+  selectRecommendation,
+  selectRecommendationLoading,
+  selectRecommendationError,
 } from './+state/dashboard.selectors';
 import { MetricCardComponent } from './components/metric-card/metric-card.component';
 import { PmcChartComponent } from './components/pmc-chart/pmc-chart.component';
 import { RecentRidesComponent } from './components/recent-rides/recent-rides.component';
+import { RecommendationCardComponent } from './components/recommendation-card/recommendation-card.component';
 
 @Component({
   selector: 'app-dashboard',
@@ -23,6 +27,7 @@ import { RecentRidesComponent } from './components/recent-rides/recent-rides.com
     MetricCardComponent,
     PmcChartComponent,
     RecentRidesComponent,
+    RecommendationCardComponent,
   ],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
@@ -36,9 +41,17 @@ export class DashboardComponent implements OnInit {
   readonly ftpPerKg = this.store.selectSignal(selectFtpPerKg);
   readonly pmcData = this.store.selectSignal(selectPmcData);
   readonly recentRides = this.store.selectSignal(selectRecentRides);
+  readonly recommendation = this.store.selectSignal(selectRecommendation);
+  readonly recommendationLoading = this.store.selectSignal(selectRecommendationLoading);
+  readonly recommendationError = this.store.selectSignal(selectRecommendationError);
 
   ngOnInit(): void {
     this.store.dispatch(DashboardActions.loadDashboard());
+    this.store.dispatch(DashboardActions.loadRecommendation({ regenerate: false }));
+  }
+
+  onRegenerate(): void {
+    this.store.dispatch(DashboardActions.regenerateRecommendation());
   }
 
   get tsbSubtitle(): string {
