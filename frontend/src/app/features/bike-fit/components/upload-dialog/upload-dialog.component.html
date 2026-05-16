@@ -42,6 +42,25 @@
       </mat-form-field>
     }
 
+    @if (poseModel() === 'rtmpose') {
+      <mat-form-field appearance="outline">
+        <mat-label>Mode</mat-label>
+        <mat-select [value]="rtmposeMode()" (selectionChange)="rtmposeMode.set($event.value)">
+          <mat-option value="lightweight">Lightweight (fastest)</mat-option>
+          <mat-option value="balanced">Balanced (recommended)</mat-option>
+          <mat-option value="performance">Performance (most accurate)</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Skeleton Schema</mat-label>
+        <mat-select [value]="rtmposeSchema()" (selectionChange)="rtmposeSchema.set($event.value)">
+          <mat-option value="coco17">COCO 17</mat-option>
+          <mat-option value="halpe26">Halpe 26 (recommended)</mat-option>
+        </mat-select>
+      </mat-form-field>
+    }
+
     <mat-form-field appearance="outline">
       <mat-label>Device</mat-label>
       <mat-select [value]="device()" (selectionChange)="device.set($event.value)">

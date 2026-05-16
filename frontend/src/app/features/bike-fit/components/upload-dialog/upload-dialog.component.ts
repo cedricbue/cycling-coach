@@ -33,8 +33,10 @@ export class UploadDialogComponent {
   private readonly dialogRef = inject(MatDialogRef<UploadDialogComponent>);
 
   selectedFile = signal<File | null>(null);
-  poseModel = signal('mediapipe');
+  poseModel = signal('rtmpose');
   mediapipeComplexity = signal(1);
+  rtmposeMode = signal('balanced');
+  rtmposeSchema = signal('halpe26');
   device = signal('auto');
   dragOver = signal(false);
 
@@ -77,6 +79,9 @@ export class UploadDialogComponent {
     };
     if (this.poseModel() === 'mediapipe') {
       result.mediapipeComplexity = this.mediapipeComplexity();
+    } else {
+      result.rtmposeMode = this.rtmposeMode();
+      result.rtmposeSchema = this.rtmposeSchema();
     }
     this.dialogRef.close(result);
   }

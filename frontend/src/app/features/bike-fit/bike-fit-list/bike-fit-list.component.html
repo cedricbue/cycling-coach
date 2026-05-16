@@ -1,25 +1,110 @@
 <div class="cc-page bike-fit-list">
   <div class="page-header">
     <h1 class="mat-headline-medium">Bike Fit</h1>
-    <div class="header-actions">
-      @if (listLoading() || uploading()) {
-        <mat-spinner diameter="24" />
-      }
-      <button mat-flat-button color="primary" (click)="openUpload()" [disabled]="uploading()">
-        <mat-icon>upload</mat-icon>
-        Upload Video
-      </button>
+    @if (listLoading() || uploading()) {
+      <mat-spinner diameter="24" />
+    }
+  </div>
+
+  <!-- Inline upload form -->
+  <div class="cc-card upload-card">
+    <div class="upload-layout">
+      <div
+        class="drop-zone"
+        [class.drag-over]="dragOver()"
+        [class.has-file]="selectedFile()"
+        (dragover)="onDragOver($event)"
+        (dragleave)="onDragLeave($event)"
+        (drop)="onDrop($event)"
+        (click)="fileInput.click()"
+      >
+        <input #fileInput type="file" accept="video/*" hidden (change)="onFileSelected($event)" />
+        @if (selectedFile(); as f) {
+          <mat-icon class="drop-icon">check_circle</mat-icon>
+          <span class="drop-filename">{{ f.name }}</span>
+          <span class="drop-hint">Click or drop to replace</span>
+        } @else {
+          <mat-icon class="drop-icon">video_file</mat-icon>
+          <span class="drop-label">Drop video here</span>
+          <span class="drop-hint">or click to browse</span>
+        }
+      </div>
+
+      <div class="upload-options">
+        <mat-form-field appearance="outline">
+          <mat-label>Pose Model</mat-label>
+          <mat-select [value]="poseModel()" (selectionChange)="poseModel.set($event.value)">
+            <mat-option value="mediapipe">MediaPipe</mat-option>
+            <mat-option value="rtmpose">RTMPose</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        @if (poseModel() === 'mediapipe') {
+          <mat-form-field appearance="outline">
+            <mat-label>Complexity</mat-label>
+            <mat-select [value]="mediapipeComplexity()" (selectionChange)="mediapipeComplexity.set($event.value)">
+              <mat-option [value]="0">Lite</mat-option>
+              <mat-option [value]="1">Full</mat-option>
+              <mat-option [value]="2">Heavy</mat-option>
+            </mat-select>
+          </mat-form-field>
+        }
+
+        @if (poseModel() === 'rtmpose') {
+          <mat-form-field appearance="outline">
+            <mat-label>Mode</mat-label>
+            <mat-select [value]="rtmposeMode()" (selectionChange)="rtmposeMode.set($event.value)">
+              <mat-option value="lightweight">Lightweight</mat-option>
+              <mat-option value="balanced">Balanced</mat-option>
+              <mat-option value="performance">Performance</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Schema</mat-label>
+            <mat-select [value]="rtmposeSchema()" (selectionChange)="rtmposeSchema.set($event.value)">
+              <mat-option value="coco17">COCO 17</mat-option>
+              <mat-option value="halpe26">Halpe 26</mat-option>
+            </mat-select>
+          </mat-form-field>
+        }
+
+        <mat-form-field appearance="outline">
+          <mat-label>Device</mat-label>
+          <mat-select [value]="device()" (selectionChange)="device.set($event.value)">
+            <mat-option value="auto">Auto-detect</mat-option>
+            <mat-option value="cpu">CPU</mat-option>
+            <mat-option value="cuda">CUDA</mat-option>
+            <mat-option value="mps">MPS (Apple)</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <button
+          mat-flat-button
+          color="primary"
+          class="submit-btn"
+          (click)="submit()"
+          [disabled]="!selectedFile() || uploading()"
+        >
+          @if (uploading()) {
+            <mat-spinner diameter="18" />
+            Uploading…
+          } @else {
+            <mat-icon>upload</mat-icon>
+            Analyze
+          }
+        </button>
+
+        @if (uploadError()) {
+          <span class="upload-error">{{ uploadError() }}</span>
+        }
+      </div>
     </div>
   </div>
 
-  <div class="cc-card">
-    @if (analyses().length === 0 && !listLoading()) {
-      <div class="empty-state">
-        <mat-icon class="empty-icon">video_file</mat-icon>
-        <p>No analyses yet. Upload a side-view cycling video to get started.</p>
-        <button mat-stroked-button (click)="openUpload()">Upload Video</button>
-      </div>
-    } @else {
+  <!-- Analyses table -->
+  @if (analyses().length > 0) {
+    <div class="cc-card">
       <table mat-table [dataSource]="analyses()" class="full-width">
 
         <ng-container matColumnDef="createdAt">
@@ -67,6 +152,6 @@
             [class.clickable]="row.status === 'DONE'"
             (click)="row.status === 'DONE' && openDetail(row.id)"></tr>
       </table>
-    }
-  </div>
+    </div>
+  }
 </div>
