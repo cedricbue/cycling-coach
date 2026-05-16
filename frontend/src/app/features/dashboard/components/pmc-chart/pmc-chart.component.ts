@@ -18,6 +18,12 @@ const ACCENT_BLUE = '#3f51b5';
 const ACCENT_ORANGE = '#ff9800';
 const ACCENT_GREEN = '#4caf50';
 
+const SERIES = [
+  { label: 'CTL — Fitness', color: ACCENT_BLUE,  index: 0 },
+  { label: 'ATL — Fatigue', color: ACCENT_ORANGE, index: 1 },
+  { label: 'TSB — Form',    color: ACCENT_GREEN,  index: 2 },
+] as const;
+
 const RANGE_90D = '90d' as const;
 const RANGE_6M = '6m' as const;
 const RANGE_1Y = '1y' as const;
@@ -50,9 +56,16 @@ const RANGES: { label: string; value: Range }[] = [
             }
           </div>
           <div class="legend">
-            <span class="legend-dot" style="background:#3f51b5"></span>CTL — Fitness
-            <span class="legend-dot" style="background:#ff9800"></span>ATL — Fatigue
-            <span class="legend-dot" style="background:#4caf50"></span>TSB — Form
+            @for (s of series; track s.index) {
+              <button
+                class="legend-item"
+                [class.hidden]="hiddenSeries().has(s.index)"
+                (click)="toggleSeries(s.index)"
+                type="button"
+              >
+                <span class="legend-dot" [style.background]="s.color"></span>{{ s.label }}
+              </button>
+            }
           </div>
         </div>
       </div>
@@ -64,8 +77,10 @@ const RANGES: { label: string; value: Range }[] = [
 export class PmcChartComponent implements AfterViewInit, OnDestroy {
   readonly data = input<PmcDataPoint[]>([]);
   readonly ranges = RANGES;
+  readonly series = SERIES;
 
   readonly selectedRange = signal<Range>(RANGE_90D);
+  readonly hiddenSeries = signal<Set<number>>(new Set());
 
   readonly filteredData = computed(() => {
     const points = this.data();
@@ -108,6 +123,20 @@ export class PmcChartComponent implements AfterViewInit, OnDestroy {
 
   setRange(range: Range): void {
     this.selectedRange.set(range);
+  }
+
+  toggleSeries(index: number): void {
+    this.hiddenSeries.update((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+    this.chart?.setDatasetVisibility(index, !this.hiddenSeries().has(index));
+    this.chart?.update();
   }
 
   private initChart(points: PmcDataPoint[]): void {
@@ -157,6 +186,9 @@ export class PmcChartComponent implements AfterViewInit, OnDestroy {
     if (!this.chart) return;
     this.chart.data = this.buildDatasets(points);
     this.chart.update('none');
+    // Re-apply hidden state — data rebuild resets Chart.js internal visibility
+    this.hiddenSeries().forEach((i) => this.chart?.setDatasetVisibility(i, false));
+    this.chart?.update('none');
   }
 
   private buildDatasets(points: PmcDataPoint[]) {
