@@ -88,5 +88,10 @@ export const bikeFitReducer = createReducer(
     ...state,
     detail: null,
     detailError: null,
+  })),
+
+  on(BikeFitActions.retryAnalysisSuccess, (state, { analysis }) => ({
+    ...state,
+    analyses: state.analyses.map((a) => (a.id === analysis.id ? analysis : a)),
   }))
 );

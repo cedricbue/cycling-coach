@@ -3,6 +3,7 @@ import { Actions, createEffect, ofType, OnInitEffects } from '@ngrx/effects';
 import { Action } from '@ngrx/store';
 import { EMPTY, from, Observable } from 'rxjs';
 import { catchError, map, mergeMap, of, switchMap } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
 import { BikeFitActions } from './bike-fit.actions';
 import { BikeFitService } from '../../../core/api/api/bikeFit.service';
 import { BikeFitAnalysisSummary } from '../../../core/api/model/models';
@@ -32,6 +33,7 @@ function sseObservable(id: string): Observable<ReturnType<typeof BikeFitActions.
 export class BikeFitEffects implements OnInitEffects {
   private readonly actions$ = inject(Actions);
   private readonly bikeFitService = inject(BikeFitService);
+  private readonly http = inject(HttpClient);
 
   ngrxOnInitEffects(): Action {
     return BikeFitActions.loadAnalyses();
@@ -89,6 +91,30 @@ export class BikeFitEffects implements OnInitEffects {
         );
         if (processing.length === 0) return EMPTY;
         return from(processing).pipe(mergeMap((a) => sseObservable(a.id)));
+      })
+    )
+  );
+
+  readonly retryAnalysis$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(BikeFitActions.retryAnalysis),
+      mergeMap(({ id }) =>
+        this.http.post<BikeFitAnalysisSummary>(`/api/bike-fit/analyses/${id}/retry`, {}).pipe(
+          map((analysis) => BikeFitActions.retryAnalysisSuccess({ analysis })),
+          catchError((error) =>
+            of(BikeFitActions.retryAnalysisFailure({ error: error?.message ?? 'Retry failed' }))
+          )
+        )
+      )
+    )
+  );
+
+  readonly watchSseOnRetry$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(BikeFitActions.retryAnalysisSuccess),
+      mergeMap(({ analysis }) => {
+        if (analysis.status !== 'PROCESSING' || !analysis.id) return EMPTY;
+        return sseObservable(analysis.id);
       })
     )
   );

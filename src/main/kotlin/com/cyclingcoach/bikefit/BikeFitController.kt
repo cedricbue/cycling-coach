@@ -9,6 +9,7 @@ import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
@@ -39,7 +40,7 @@ class BikeFitController(
         ResponseEntity.ok(bikeFitService.listAnalyses().map { it.toSummary() })
 
     override fun getBikeFitAnalysis(id: String): ResponseEntity<BikeFitAnalysisDetail> {
-        val row = bikeFitService.findById(id) ?: return ResponseEntity.notFound().build()
+        val row = bikeFitService.findByIdWithLandmarks(id) ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(row.toDetail())
     }
 
@@ -50,6 +51,12 @@ class BikeFitController(
         return ResponseEntity.ok()
             .contentType(MediaType.parseMediaType("video/mp4"))
             .body(FileSystemResource(file))
+    }
+
+    @PostMapping("/api/bike-fit/analyses/{id}/retry")
+    fun retryBikeFitAnalysis(@PathVariable id: String): ResponseEntity<BikeFitAnalysisSummary> {
+        val row = bikeFitService.retryAnalysis(id) ?: return ResponseEntity.notFound().build()
+        return ResponseEntity.ok(row.toSummary())
     }
 
     @GetMapping(

@@ -1,5 +1,6 @@
 package com.cyclingcoach.bikefit
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
@@ -11,24 +12,24 @@ import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 
 data class LandmarksReport(
-    val poseModel: String,
-    val poseSchema: String,
-    val fps: Double,
-    val totalFrames: Int,
-    val frames: List<FrameLandmarks>,
+    @JsonProperty("pose_model")   val poseModel: String,
+    @JsonProperty("pose_schema")  val poseSchema: String,
+    @JsonProperty("fps")          val fps: Double,
+    @JsonProperty("total_frames") val totalFrames: Int,
+    @JsonProperty("frames")       val frames: List<FrameLandmarks>,
 )
 
 data class FrameLandmarks(
-    val frameIndex: Int,
-    val ts: Double,
-    val landmarks: List<Landmark>,
+    @JsonProperty("frame_index") val frameIndex: Int,
+    @JsonProperty("ts")          val ts: Double,
+    @JsonProperty("landmarks")   val landmarks: List<Landmark>,
 )
 
 data class Landmark(
-    val x: Double,
-    val y: Double,
-    val z: Double? = null,
-    val visibility: Double? = null,
+    @JsonProperty("x")          val x: Double,
+    @JsonProperty("y")          val y: Double,
+    @JsonProperty("z")          val z: Double? = null,
+    @JsonProperty("visibility") val visibility: Double? = null,
 )
 
 @Component

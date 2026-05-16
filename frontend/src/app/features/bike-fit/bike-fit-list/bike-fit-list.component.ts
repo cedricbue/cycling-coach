@@ -96,6 +96,10 @@ export class BikeFitListComponent implements OnInit {
     this.selectedFile.set(null);
   }
 
+  retry(id: string): void {
+    this.store.dispatch(BikeFitActions.retryAnalysis({ id }));
+  }
+
   openDetail(id: string): void {
     this.router.navigate(['/bike-fit', id]);
   }

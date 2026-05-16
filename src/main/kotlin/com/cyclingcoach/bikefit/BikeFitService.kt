@@ -71,8 +71,9 @@ class BikeFitService(
             val report = landmarksApiClient.analyze(
                 videoPath, poseModel, mediapipeComplexity, rtmposeMode, rtmposeSchema, device,
             )
-            val json = objectMapper.writeValueAsString(report)
-            repository.updateDone(id, report, json)
+            val landmarksPath = videoPath.parent.resolve("landmarks.json")
+            Files.writeString(landmarksPath, objectMapper.writeValueAsString(report))
+            repository.updateDone(id, report)
             sseRegistry.completeOk(id, """{"status":"DONE"}""")
             log.info("Analysis $id completed: ${report.totalFrames} frames at ${report.fps} fps")
         } catch (e: Exception) {
@@ -82,7 +83,24 @@ class BikeFitService(
         }
     }
 
+    fun retryAnalysis(id: String): BikeFitRow? {
+        val row = repository.findById(id) ?: return null
+        if (row.status != "FAILED") return row
+        repository.resetToProcessing(id)
+        val videoPath = Path.of(row.videoPath)
+        processAsync(id, videoPath, row.poseModel, null, null, null, "auto")
+        return repository.findById(id)
+    }
+
     fun listAnalyses(): List<BikeFitRow> = repository.findAll()
 
     fun findById(id: String): BikeFitRow? = repository.findById(id)
+
+    fun findByIdWithLandmarks(id: String): BikeFitRow? {
+        val row = repository.findById(id) ?: return null
+        if (row.status != "DONE") return row
+        val landmarksPath = Path.of(row.videoPath).parent.resolve("landmarks.json")
+        val json = runCatching { Files.readString(landmarksPath) }.getOrNull()
+        return row.copy(landmarksJson = json)
+    }
 }

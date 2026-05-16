@@ -27,5 +27,9 @@ export const BikeFitActions = createActionGroup({
     'Load Analysis Detail Failure': props<{ error: string }>(),
 
     'Clear Detail': emptyProps(),
+
+    'Retry Analysis': props<{ id: string }>(),
+    'Retry Analysis Success': props<{ analysis: BikeFitAnalysisSummary }>(),
+    'Retry Analysis Failure': props<{ error: string }>(),
   },
 });

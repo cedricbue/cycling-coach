@@ -153,7 +153,6 @@ CREATE TABLE bike_fit_analysis
     pose_schema       TEXT CHECK (pose_schema IN ('mediapipe_33', 'coco_17', 'halpe_26')),
     fps               REAL,
     total_frames      INTEGER,
-    landmarks_json    TEXT,              -- full LandmarksReport JSON; set on DONE
     error_message     TEXT,             -- set on FAILED
     created_at        TEXT NOT NULL DEFAULT (datetime('now')),
     completed_at      TEXT
