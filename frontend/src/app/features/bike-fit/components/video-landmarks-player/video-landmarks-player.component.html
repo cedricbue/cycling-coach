@@ -1,0 +1,32 @@
+<div class="player-wrapper">
+  <div class="video-container" [class.measure-mode]="measureMode()">
+    <video
+      #videoEl
+      [src]="videoSrc()"
+      controls
+      playsinline
+      class="video"
+    ></video>
+    <canvas
+      #canvasEl
+      class="overlay"
+      (click)="onCanvasClick($event)"
+    ></canvas>
+  </div>
+
+  <div class="player-controls">
+    <button mat-stroked-button (click)="toggleMeasure()" [color]="measureMode() ? 'accent' : ''">
+      <mat-icon>straighten</mat-icon>
+      {{ measureMode() ? 'Measuring… (3 clicks)' : 'Manual Measure' }}
+    </button>
+    @if (manualAngles().length) {
+      <button mat-stroked-button (click)="clearManual()">
+        <mat-icon>clear</mat-icon>
+        Clear Manual
+      </button>
+    }
+    @if (measureMode()) {
+      <span class="measure-hint">Click: point 1 → vertex → point 2</span>
+    }
+  </div>
+</div>

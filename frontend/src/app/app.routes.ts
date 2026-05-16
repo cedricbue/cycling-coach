@@ -11,6 +11,8 @@ import { SETTINGS_FEATURE_KEY, settingsReducer } from './features/settings/+stat
 import { SettingsEffects } from './features/settings/+state/settings.effects';
 import { PROFILE_FEATURE_KEY, profileReducer } from './features/user-profile/+state/profile.reducer';
 import { ProfileEffects } from './features/user-profile/+state/profile.effects';
+import { BIKE_FIT_FEATURE_KEY, bikeFitReducer } from './features/bike-fit/+state/bike-fit.reducer';
+import { BikeFitEffects } from './features/bike-fit/+state/bike-fit.effects';
 
 export const routes: Routes = [
   {
@@ -70,6 +72,28 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/user-profile/user-profile.component').then(
             (m) => m.UserProfileComponent
+          ),
+      },
+      {
+        path: 'bike-fit',
+        providers: [
+          provideState(BIKE_FIT_FEATURE_KEY, bikeFitReducer),
+          provideEffects(BikeFitEffects),
+        ],
+        loadComponent: () =>
+          import('./features/bike-fit/bike-fit-list/bike-fit-list.component').then(
+            (m) => m.BikeFitListComponent
+          ),
+      },
+      {
+        path: 'bike-fit/:id',
+        providers: [
+          provideState(BIKE_FIT_FEATURE_KEY, bikeFitReducer),
+          provideEffects(BikeFitEffects),
+        ],
+        loadComponent: () =>
+          import('./features/bike-fit/bike-fit-detail/bike-fit-detail.component').then(
+            (m) => m.BikeFitDetailComponent
           ),
       },
     ],

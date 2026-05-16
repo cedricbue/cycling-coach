@@ -1,0 +1,28 @@
+<div class="angle-grid">
+  @for (angle of angles(); track angle.name) {
+    <div class="angle-card" [class]="angleClass(angle)"
+         [matTooltip]="'Optimal range: ' + angle.min + '–' + angle.max + angle.unit + (angle.note ? '. ' + angle.note : '')">
+      <div class="angle-name">{{ angle.name }}</div>
+      <div class="angle-value">
+        @if (angle.value !== null) {
+          {{ angle.value | number:'1.0-0' }}{{ angle.unit }}
+        } @else {
+          <span class="na-text">n/a</span>
+        }
+      </div>
+      <div class="angle-range">{{ angle.min }}–{{ angle.max }}{{ angle.unit }}</div>
+    </div>
+  }
+
+  @if (manualMeasurements().length) {
+    <div class="manual-section">
+      <div class="manual-header">Manual</div>
+      @for (m of manualMeasurements(); track $index) {
+        <div class="angle-card manual">
+          <div class="angle-name">Manual {{ $index + 1 }}</div>
+          <div class="angle-value">{{ m | number:'1.0-0' }}°</div>
+        </div>
+      }
+    </div>
+  }
+</div>

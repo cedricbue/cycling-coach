@@ -141,6 +141,26 @@ CREATE TABLE daily_recommendation
     generated_at     TEXT NOT NULL
 );
 
+-- Bike fit video analysis
+
+CREATE TABLE bike_fit_analysis
+(
+    id                TEXT PRIMARY KEY,  -- UUID
+    status            TEXT NOT NULL CHECK (status IN ('PROCESSING', 'DONE', 'FAILED')),
+    video_path        TEXT NOT NULL,     -- relative: data/bike-fit/{uuid}/video.{ext}
+    original_filename TEXT NOT NULL,
+    pose_model        TEXT NOT NULL CHECK (pose_model IN ('mediapipe', 'rtmpose')),
+    pose_schema       TEXT CHECK (pose_schema IN ('mediapipe_33', 'coco_17', 'halpe_26')),
+    fps               REAL,
+    total_frames      INTEGER,
+    landmarks_json    TEXT,              -- full LandmarksReport JSON; set on DONE
+    error_message     TEXT,             -- set on FAILED
+    created_at        TEXT NOT NULL DEFAULT (datetime('now')),
+    completed_at      TEXT
+);
+
+CREATE INDEX idx_bike_fit_created ON bike_fit_analysis (created_at DESC);
+
 -- Seed: ensure exactly one user_profile row always exists
 INSERT INTO user_profile(id, updated_at)
 VALUES (1, datetime('now'));

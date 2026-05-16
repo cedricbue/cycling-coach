@@ -25,6 +25,8 @@ tags:
     description: Read-only application settings (configured via application.yml)
   - name: coaching
     description: AI coaching — ride analysis and daily training recommendations
+  - name: bike-fit
+    description: Bike fit video analysis — pose landmark processing and angle assessment
 
 paths:
 
@@ -254,6 +256,112 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AppSettings"
+
+  # ── Bike Fit ─────────────────────────────────────────────────────────────────
+
+  /api/bike-fit/analyses:
+    post:
+      tags: [ bike-fit ]
+      operationId: createBikeFitAnalysis
+      summary: Upload cycling video and start pose landmark analysis
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [ video, poseModel ]
+              properties:
+                video:
+                  type: string
+                  format: binary
+                poseModel:
+                  type: string
+                  enum: [ mediapipe, rtmpose ]
+                mediapipeComplexity:
+                  type: integer
+                  minimum: 0
+                  maximum: 2
+                rtmposeMode:
+                  type: string
+                  enum: [ lightweight, balanced, performance ]
+                rtmposeSchema:
+                  type: string
+                  enum: [ coco17, halpe26 ]
+                device:
+                  type: string
+                  enum: [ auto, cpu, cuda, mps ]
+                  default: auto
+      responses:
+        "202":
+          description: Analysis created and processing started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BikeFitAnalysisSummary"
+    get:
+      tags: [ bike-fit ]
+      operationId: listBikeFitAnalyses
+      summary: List all bike fit analyses ordered by created_at desc
+      responses:
+        "200":
+          description: List of analyses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BikeFitAnalysisSummary"
+
+  /api/bike-fit/analyses/{id}:
+    get:
+      tags: [ bike-fit ]
+      operationId: getBikeFitAnalysis
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Full analysis including landmarks JSON
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BikeFitAnalysisDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/bike-fit/analyses/{id}/video:
+    get:
+      tags: [ bike-fit ]
+      operationId: getBikeFitVideo
+      summary: Stream the uploaded video file (supports HTTP Range)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Video file stream
+          content:
+            video/mp4:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
 # ── Components ───────────────────────────────────────────────────────────────
 
@@ -633,3 +741,43 @@ components:
           $ref: "#/components/schemas/PowerZoneSettings"
         hrZones:
           $ref: "#/components/schemas/HrZoneSettings"
+
+    BikeFitAnalysisSummary:
+      type: object
+      required: [ id, status, poseModel, originalFilename, createdAt ]
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [ PROCESSING, DONE, FAILED ]
+        poseModel:
+          type: string
+          enum: [ mediapipe, rtmpose ]
+        poseSchema:
+          type: string
+          enum: [ mediapipe_33, coco_17, halpe_26 ]
+        originalFilename:
+          type: string
+        fps:
+          type: number
+          format: double
+        totalFrames:
+          type: integer
+        errorMessage:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+
+    BikeFitAnalysisDetail:
+      allOf:
+        - $ref: "#/components/schemas/BikeFitAnalysisSummary"
+        - type: object
+          properties:
+            landmarksJson:
+              type: string
+              description: Full LandmarksReport JSON; present only when status=DONE

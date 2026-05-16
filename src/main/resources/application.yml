@@ -1,7 +1,17 @@
 server:
   port: 8080
+  tomcat:
+    max-http-form-post-size: -1
 
 spring:
+  servlet:
+    multipart:
+      max-file-size: 500MB
+      max-request-size: 502MB
+      file-size-threshold: 1MB
+  mvc:
+    async:
+      request-timeout: -1
   web:
     resources:
       static-locations: classpath:/static/browser/
@@ -23,6 +33,10 @@ spring:
       base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
       chat:
         model: ${AI_MODEL:gemma4:latest}
+
+bike-fit:
+  data-dir: ${BIKE_FIT_DATA_DIR:./data/bike-fit}
+  landmarks-api-url: ${LANDMARKS_API_URL:http://0.0.0.0:8002}
 
 coaching:
   location:
