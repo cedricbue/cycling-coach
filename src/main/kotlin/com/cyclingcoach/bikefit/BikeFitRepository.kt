@@ -35,12 +35,12 @@ class BikeFitRepository(private val dsl: DSLContext) {
             .execute()
     }
 
-    fun updateDone(id: String, report: LandmarksReport) {
+    fun updateDone(id: String, result: AnalysisResult) {
         dsl.update(BIKE_FIT_ANALYSIS)
             .set(BIKE_FIT_ANALYSIS.STATUS, "DONE")
-            .set(BIKE_FIT_ANALYSIS.POSE_SCHEMA, report.poseSchema)
-            .set(BIKE_FIT_ANALYSIS.FPS, report.fps.toFloat())
-            .set(BIKE_FIT_ANALYSIS.TOTAL_FRAMES, report.totalFrames)
+            .set(BIKE_FIT_ANALYSIS.POSE_SCHEMA, result.schema)
+            .set(BIKE_FIT_ANALYSIS.FPS, result.fps.toFloat())
+            .set(BIKE_FIT_ANALYSIS.TOTAL_FRAMES, result.totalFrames)
             .set(BIKE_FIT_ANALYSIS.COMPLETED_AT, OffsetDateTime.now().toString())
             .where(BIKE_FIT_ANALYSIS.ID.eq(id))
             .execute()

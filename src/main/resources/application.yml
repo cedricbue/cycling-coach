@@ -37,6 +37,8 @@ spring:
 bike-fit:
   data-dir: ${BIKE_FIT_DATA_DIR:./data/bike-fit}
   landmarks-api-url: ${LANDMARKS_API_URL:http://0.0.0.0:8002}
+  landmarks-read-timeout-minutes: ${LANDMARKS_READ_TIMEOUT_MINUTES:60}
+  landmarks-write-timeout-minutes: ${LANDMARKS_WRITE_TIMEOUT_MINUTES:10}
 
 coaching:
   location:

@@ -8,4 +8,6 @@ import org.springframework.stereotype.Component
 data class BikeFitProperties(
     var dataDir: String = "./data/bike-fit",
     var landmarksApiUrl: String = "http://0.0.0.0:8002",
+    var landmarksReadTimeoutMinutes: Long = 60,
+    var landmarksWriteTimeoutMinutes: Long = 10,
 )

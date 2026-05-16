@@ -1,7 +1,5 @@
 .player-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  position: relative;
 }
 
 .video-container {
@@ -18,11 +16,10 @@
 .video {
   display: block;
   width: 100%;
-  height: auto;
-  max-height: 60vh;
-  object-fit: contain;
+  height: 100%;
 }
 
+// Container is sized to video AR by repositionCanvas(), so canvas fills it 1:1
 .overlay {
   position: absolute;
   inset: 0;
@@ -35,15 +32,89 @@
   }
 }
 
-.player-controls {
+// Floating toolbars above the native video controls bar (~48px tall)
+.player-toolbar {
+  position: absolute;
+  bottom: 52px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 4px;
+  z-index: 10;
+  pointer-events: all;
 }
 
-.measure-hint {
+.toolbar-left  { left: 8px; }
+.toolbar-right { right: 8px; }
+
+.toolbar-btn {
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(4px);
+  font-size: 13px;
+  height: 32px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  mat-icon { font-size: 16px; width: 16px; height: 16px; }
+
+  &.active {
+    background: rgba(103, 80, 164, 0.75);
+    border-color: rgba(255, 255, 255, 0.5);
+  }
+}
+
+.toolbar-icon-btn {
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  backdrop-filter: blur(4px);
+  width: 32px;
+  height: 32px;
+  line-height: 32px;
+
+  mat-icon { font-size: 18px; }
+}
+
+.measure-hint,
+.toolbar-hint {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(0, 0, 0, 0.45);
+  padding: 2px 6px;
+  border-radius: 4px;
+  backdrop-filter: blur(4px);
+  white-space: nowrap;
+
+  kbd {
+    font-size: 10px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 3px;
+    padding: 0 3px;
+  }
+}
+
+.speed-btn {
+  height: 28px;
+  padding: 0 8px;
   font-size: 12px;
-  color: #888;
-  font-style: italic;
+  font-weight: 600;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.55);
+  color: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(4px);
+  transition: background 0.15s, color 0.15s;
+
+  &.active {
+    background: rgba(103, 80, 164, 0.8);
+    color: #fff;
+  }
+
+  &:hover:not(.active) {
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+  }
 }

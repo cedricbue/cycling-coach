@@ -1,0 +1,168 @@
+openapi: 3.1.0
+info:
+  title: Landmarks Validation API
+  version: 0.1.0
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: health_health_get
+      responses:
+        '200':
+          description: Service status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LandmarksHealthResponse'
+
+  /analyze:
+    post:
+      summary: Detect pose landmarks in a video using MediaPipe or RTMPose
+      operationId: analyze_analyze_post
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - video
+              properties:
+                video:
+                  type: string
+                  format: binary
+                  description: MP4/MOV/AVI/WEBM video file
+                pose_model:
+                  $ref: '#/components/schemas/PoseModel'
+                mediapipe_complexity:
+                  type: integer
+                  minimum: 0
+                  maximum: 2
+                  default: 2
+                  description: MediaPipe model complexity (0=lite, 1=full, 2=heavy). Ignored when pose_model=rtmpose.
+                rtmpose_mode:
+                  $ref: '#/components/schemas/RtmposeMode'
+                rtmpose_schema:
+                  $ref: '#/components/schemas/RtmposeSchema'
+                device:
+                  $ref: '#/components/schemas/Device'
+      responses:
+        '200':
+          description: Per-frame pose landmarks
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LandmarksReport'
+        '422':
+          description: Validation error or no usable frames extracted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorDetail'
+
+components:
+  schemas:
+
+    PoseModel:
+      type: string
+      enum:
+        - mediapipe
+        - rtmpose
+      default: mediapipe
+      description: Pose estimation model
+
+    RtmposeMode:
+      type: string
+      enum:
+        - lightweight
+        - balanced
+        - performance
+      default: performance
+      description: RTMPose quality preset. Ignored when pose_model=mediapipe.
+
+    RtmposeSchema:
+      type: string
+      enum:
+        - coco17
+        - halpe26
+      default: coco17
+      description: RTMPose keypoint schema. coco17=17 keypoints, halpe26=26 keypoints with feet. Ignored when pose_model=mediapipe.
+
+    Device:
+      type: string
+      enum:
+        - auto
+        - cpu
+        - cuda
+        - mps
+      default: auto
+      description: ONNX Runtime execution provider. auto=best available, mps=Apple Silicon GPU, cuda=NVIDIA GPU.
+
+    LandmarksHealthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          example: ok
+
+    FrameLandmarks:
+      type: object
+      description: Pose landmarks for a single video frame
+      required:
+        - fi
+        - ts
+        - lm
+      properties:
+        fi:
+          type: integer
+          description: Frame index
+        ts:
+          type: number
+          format: float
+          description: Timestamp in seconds
+        lm:
+          type: array
+          description: K keypoints x [x, y, z, score] - normalised image coordinates
+          items:
+            type: array
+            items:
+              type: number
+              format: float
+            minItems: 4
+            maxItems: 4
+
+    LandmarksReport:
+      type: object
+      required:
+        - fps
+        - total_frames
+        - pose_model
+        - schema
+        - frames_landmarks
+      properties:
+        fps:
+          type: number
+          format: float
+        total_frames:
+          type: integer
+        pose_model:
+          $ref: '#/components/schemas/PoseModel'
+        schema:
+          type: string
+          description: Keypoint schema identifier (mediapipe_33, coco_17, or halpe_26)
+          example: mediapipe_33
+        frames_landmarks:
+          type: array
+          items:
+            $ref: '#/components/schemas/FrameLandmarks'
+
+    ErrorDetail:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string

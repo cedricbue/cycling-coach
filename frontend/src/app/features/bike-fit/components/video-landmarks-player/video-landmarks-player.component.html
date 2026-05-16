@@ -10,23 +10,42 @@
     <canvas
       #canvasEl
       class="overlay"
-      (click)="onCanvasClick($event)"
     ></canvas>
   </div>
 
-  <div class="player-controls">
-    <button mat-stroked-button (click)="toggleMeasure()" [color]="measureMode() ? 'accent' : ''">
+  <!-- Left toolbar: measure controls -->
+  <div class="player-toolbar toolbar-left">
+    <button mat-stroked-button
+      class="toolbar-btn"
+      [class.active]="measureMode()"
+      (click)="toggleMeasure()">
       <mat-icon>straighten</mat-icon>
-      {{ measureMode() ? 'Measuring… (3 clicks)' : 'Manual Measure' }}
+      {{ measureMode() ? 'Measuring' : 'Measure' }}
     </button>
-    @if (manualAngles().length) {
-      <button mat-stroked-button (click)="clearManual()">
+    @if (measureMode()) {
+      <button mat-icon-button class="toolbar-icon-btn" (click)="addMeasurement()" matTooltip="Add measurement">
+        <mat-icon>add</mat-icon>
+      </button>
+    }
+    @if (hasMeasurements()) {
+      <button mat-icon-button class="toolbar-icon-btn" (click)="clearMeasurements()" matTooltip="Clear all">
         <mat-icon>clear</mat-icon>
-        Clear Manual
       </button>
     }
     @if (measureMode()) {
-      <span class="measure-hint">Click: point 1 → vertex → point 2</span>
+      <span class="measure-hint"><kbd>Shift</kbd> free · <kbd>Alt</kbd> H/V</span>
+    }
+  </div>
+
+  <!-- Right toolbar: playback speed + keyboard hints -->
+  <div class="player-toolbar toolbar-right">
+    <span class="toolbar-hint">
+      <kbd>Space</kbd> play · <kbd>←</kbd><kbd>→</kbd> frame
+    </span>
+    @for (s of speeds; track s.rate) {
+      <button class="speed-btn" [class.active]="playbackRate() === s.rate" (click)="setSpeed(s.rate)">
+        {{ s.label }}
+      </button>
     }
   </div>
 </div>

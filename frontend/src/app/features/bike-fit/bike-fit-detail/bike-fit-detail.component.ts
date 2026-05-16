@@ -1,8 +1,9 @@
-import { Component, inject, OnDestroy, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { MatButtonModule } from '@angular/material/button';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { BikeFitActions } from '../+state/bike-fit.actions';
@@ -10,12 +11,15 @@ import { selectDetail, selectDetailError, selectDetailLoading } from '../+state/
 import { VideoLandmarksPlayerComponent } from '../components/video-landmarks-player/video-landmarks-player.component';
 import { AngleDisplayComponent, BikeAngle } from '../components/angle-display/angle-display.component';
 
+const ALL_ANGLE_NAMES = ['Knee Angle', 'Hip Angle', 'Torso Angle', 'Elbow Angle', 'Ankle Angle'];
+
 @Component({
   selector: 'app-bike-fit-detail',
   standalone: true,
   imports: [
     CommonModule,
     MatButtonModule,
+    MatCheckboxModule,
     MatIconModule,
     MatProgressSpinnerModule,
     VideoLandmarksPlayerComponent,
@@ -36,6 +40,11 @@ export class BikeFitDetailComponent implements OnInit, OnDestroy {
   readonly angles = signal<BikeAngle[]>([]);
   readonly manualAngles = signal<number[]>([]);
 
+  // Selecting an angle = showing it on video. Checkbox = select/deselect all.
+  readonly selectedAngleNames = signal<Set<string>>(new Set(ALL_ANGLE_NAMES));
+  readonly allSelected  = computed(() => this.selectedAngleNames().size === ALL_ANGLE_NAMES.length);
+  readonly someSelected = computed(() => this.selectedAngleNames().size > 0 && !this.allSelected());
+
   videoUrl = '';
 
   ngOnInit(): void {
@@ -48,15 +57,17 @@ export class BikeFitDetailComponent implements OnInit, OnDestroy {
     this.store.dispatch(BikeFitActions.clearDetail());
   }
 
-  goBack(): void {
-    this.router.navigate(['/bike-fit']);
+  goBack(): void { this.router.navigate(['/bike-fit']); }
+
+  onAnglesChanged(angles: BikeAngle[]): void { this.angles.set(angles); }
+
+  onAngleToggled(name: string): void {
+    const next = new Set(this.selectedAngleNames());
+    if (next.has(name)) next.delete(name); else next.add(name);
+    this.selectedAngleNames.set(next);
   }
 
-  onAnglesChanged(angles: BikeAngle[]): void {
-    this.angles.set(angles);
-  }
-
-  onManualAnglesChanged(angles: number[]): void {
-    this.manualAngles.set(angles);
+  toggleAll(checked: boolean): void {
+    this.selectedAngleNames.set(checked ? new Set(ALL_ANGLE_NAMES) : new Set());
   }
 }

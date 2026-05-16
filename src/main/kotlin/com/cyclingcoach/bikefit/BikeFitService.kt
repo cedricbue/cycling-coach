@@ -1,7 +1,6 @@
 package com.cyclingcoach.bikefit
 
 import com.cyclingcoach.config.VIRTUAL_THREAD_EXECUTOR
-import com.fasterxml.jackson.databind.ObjectMapper
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
@@ -9,7 +8,7 @@ import org.springframework.web.multipart.MultipartFile
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.OffsetDateTime
-import java.util.UUID
+import java.util.*
 
 @Service
 class BikeFitService(
@@ -17,7 +16,6 @@ class BikeFitService(
     private val repository: BikeFitRepository,
     private val landmarksApiClient: LandmarksApiClient,
     private val sseRegistry: SseEmitterRegistry,
-    private val objectMapper: ObjectMapper,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -68,14 +66,14 @@ class BikeFitService(
     ) {
         log.info("Starting landmarks analysis for $id (model=$poseModel)")
         try {
-            val report = landmarksApiClient.analyze(
+            val result = landmarksApiClient.analyze(
                 videoPath, poseModel, mediapipeComplexity, rtmposeMode, rtmposeSchema, device,
             )
             val landmarksPath = videoPath.parent.resolve("landmarks.json")
-            Files.writeString(landmarksPath, objectMapper.writeValueAsString(report))
-            repository.updateDone(id, report)
+            Files.writeString(landmarksPath, result.rawJson)
+            repository.updateDone(id, result)
             sseRegistry.completeOk(id, """{"status":"DONE"}""")
-            log.info("Analysis $id completed: ${report.totalFrames} frames at ${report.fps} fps")
+            log.info("Analysis $id completed: ${result.totalFrames} frames at ${result.fps} fps")
         } catch (e: Exception) {
             log.error("Analysis $id failed: ${e.message}", e)
             repository.updateFailed(id, e.message)

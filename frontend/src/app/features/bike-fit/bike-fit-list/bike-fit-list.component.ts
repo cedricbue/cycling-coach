@@ -8,7 +8,6 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTableModule } from '@angular/material/table';
-import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { BikeFitActions } from '../+state/bike-fit.actions';
 import { selectAnalyses, selectListLoading, selectUploading, selectUploadError } from '../+state/bike-fit.selectors';
@@ -24,7 +23,6 @@ import { selectAnalyses, selectListLoading, selectUploading, selectUploadError }
     MatIconModule,
     MatProgressSpinnerModule,
     MatTableModule,
-    MatChipsModule,
     MatTooltipModule,
   ],
   templateUrl: './bike-fit-list.component.html',
@@ -104,7 +102,4 @@ export class BikeFitListComponent implements OnInit {
     this.router.navigate(['/bike-fit', id]);
   }
 
-  statusColor(status: string): string {
-    return status === 'DONE' ? 'primary' : status === 'FAILED' ? 'warn' : 'default';
-  }
 }

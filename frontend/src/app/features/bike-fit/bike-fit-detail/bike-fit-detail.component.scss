@@ -7,41 +7,37 @@
 
 .detail-layout {
   display: grid;
-  grid-template-columns: 1fr 340px;
+  grid-template-columns: min-content 360px;
   gap: 16px;
   align-items: start;
 
-  @media (max-width: 960px) {
+  @media (max-width: 760px) {
     grid-template-columns: 1fr;
   }
 }
 
-.angles-column {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+.video-column {
+  // No padding — video aligns directly with the grid cell
 }
 
-.angles-card, .meta-card {
+.angles-column {
   padding: 16px;
+}
+
+.angles-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 14px;
+
+  mat-checkbox { font-size: 15px; font-weight: 600; }
 }
 
 .accuracy-note {
   font-size: 11px;
-  color: #888;
-  margin: 4px 0 12px;
+  color: #999;
   font-style: italic;
-}
-
-.meta-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 6px 0;
-  border-bottom: 1px solid #f0f0f0;
-  font-size: 13px;
-
-  span:first-child { color: #888; }
-  span:last-child  { font-weight: 500; }
+  padding-left: 28px; // align with checkbox label
 }
 
 .error-msg {

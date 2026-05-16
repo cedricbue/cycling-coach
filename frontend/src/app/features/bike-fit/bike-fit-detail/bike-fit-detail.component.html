@@ -4,41 +4,39 @@
       <mat-icon>arrow_back</mat-icon>
     </button>
     <h1 class="mat-headline-medium">Bike Fit Analysis</h1>
-    @if (loading()) {
-      <mat-spinner diameter="24" />
-    }
+    @if (loading()) { <mat-spinner diameter="24" /> }
   </div>
 
-  @if (error()) {
-    <div class="error-msg">{{ error() }}</div>
-  }
+  @if (error()) { <div class="error-msg">{{ error() }}</div> }
 
   @if (detail(); as d) {
     <div class="detail-layout">
-      <div class="video-column cc-card">
+      <div class="video-column">
         <app-video-landmarks-player
           [videoSrc]="videoUrl"
           [landmarksJson]="d.landmarksJson ?? null"
+          [visibleAngleNames]="selectedAngleNames()"
           (anglesChanged)="onAnglesChanged($event)"
         />
       </div>
 
-      <div class="angles-column">
-        <div class="cc-card angles-card">
-          <h3 class="mat-title-medium">Bike Fit Angles</h3>
-          <p class="accuracy-note">
-            Accuracy: ±3–5° knee, ±5–8° torso/hip. Camera must be perpendicular to bike axis at pedal axle height.
-          </p>
-          <app-angle-display [angles]="angles()" [manualMeasurements]="manualAngles()" />
+      <div class="angles-column cc-card">
+        <div class="angles-header">
+          <mat-checkbox
+            [checked]="allSelected()"
+            [indeterminate]="someSelected()"
+            (change)="toggleAll(!!$event.checked)"
+            color="primary">
+            Bike Fit Angles
+          </mat-checkbox>
+          <span class="accuracy-note">±3–5° knee, ±5–8° torso/hip</span>
         </div>
 
-        <div class="cc-card meta-card">
-          <h3 class="mat-title-medium">Details</h3>
-          <div class="meta-row"><span>File</span><span>{{ d.originalFilename }}</span></div>
-          <div class="meta-row"><span>Model</span><span>{{ d.poseModel }} / {{ d.poseSchema ?? '—' }}</span></div>
-          <div class="meta-row"><span>Frames</span><span>{{ d.totalFrames ?? '—' }} @ {{ d.fps ?? '—' | number:'1.0-1' }} fps</span></div>
-          <div class="meta-row"><span>Status</span><span>{{ d.status }}</span></div>
-        </div>
+        <app-angle-display
+          [angles]="angles()"
+          [selectedNames]="selectedAngleNames()"
+          (nameToggled)="onAngleToggled($event)"
+        />
       </div>
     </div>
   }

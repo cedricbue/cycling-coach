@@ -1,6 +1,5 @@
 package com.cyclingcoach.bikefit
 
-import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.ObjectMapper
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
@@ -11,25 +10,12 @@ import org.springframework.stereotype.Component
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 
-data class LandmarksReport(
-    @JsonProperty("pose_model")   val poseModel: String,
-    @JsonProperty("pose_schema")  val poseSchema: String,
-    @JsonProperty("fps")          val fps: Double,
-    @JsonProperty("total_frames") val totalFrames: Int,
-    @JsonProperty("frames")       val frames: List<FrameLandmarks>,
-)
-
-data class FrameLandmarks(
-    @JsonProperty("frame_index") val frameIndex: Int,
-    @JsonProperty("ts")          val ts: Double,
-    @JsonProperty("landmarks")   val landmarks: List<Landmark>,
-)
-
-data class Landmark(
-    @JsonProperty("x")          val x: Double,
-    @JsonProperty("y")          val y: Double,
-    @JsonProperty("z")          val z: Double? = null,
-    @JsonProperty("visibility") val visibility: Double? = null,
+data class AnalysisResult(
+    val rawJson: String,
+    val poseModel: String,
+    val schema: String?,
+    val fps: Double,
+    val totalFrames: Int,
 )
 
 @Component
@@ -38,8 +24,8 @@ class LandmarksApiClient(
     private val objectMapper: ObjectMapper,
 ) {
     private val client = OkHttpClient.Builder()
-        .readTimeout(10, TimeUnit.MINUTES)
-        .writeTimeout(5, TimeUnit.MINUTES)
+        .readTimeout(properties.landmarksReadTimeoutMinutes, TimeUnit.MINUTES)
+        .writeTimeout(properties.landmarksWriteTimeoutMinutes, TimeUnit.MINUTES)
         .connectTimeout(30, TimeUnit.SECONDS)
         .build()
 
@@ -50,13 +36,12 @@ class LandmarksApiClient(
         rtmposeMode: String?,
         rtmposeSchema: String?,
         device: String,
-    ): LandmarksReport {
+    ): AnalysisResult {
         val file = videoPath.toFile()
-        val mediaType = "video/mp4".toMediaType()
 
         val bodyBuilder = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
-            .addFormDataPart("video", file.name, file.asRequestBody(mediaType))
+            .addFormDataPart("video", file.name, file.asRequestBody("video/mp4".toMediaType()))
             .addFormDataPart("pose_model", poseModel)
             .addFormDataPart("device", device)
 
@@ -77,7 +62,16 @@ class LandmarksApiClient(
             body
         }
 
-        return objectMapper.readValue(responseBody, LandmarksReport::class.java)
+        // Parse only the metadata fields we need for the DB; the raw JSON is stored to disk as-is.
+        // Generated model classes (com.cyclingcoach.generated.landmarks) serve as spec reference.
+        val node = objectMapper.readTree(responseBody)
+        return AnalysisResult(
+            rawJson = responseBody,
+            poseModel = node["pose_model"]?.asText() ?: poseModel,
+            schema = node["schema"]?.asText(),
+            fps = node["fps"]?.asDouble() ?: 0.0,
+            totalFrames = node["total_frames"]?.asInt() ?: 0,
+        )
     }
 }
 
