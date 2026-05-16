@@ -10,3 +10,7 @@ export const selectUploadError = createSelector(selectBikeFitState, (s) => s.upl
 export const selectDetail = createSelector(selectBikeFitState, (s) => s.detail);
 export const selectDetailLoading = createSelector(selectBikeFitState, (s) => s.detailLoading);
 export const selectDetailError = createSelector(selectBikeFitState, (s) => s.detailError);
+export const selectProcessingCount = createSelector(
+  selectBikeFitState,
+  (s) => s.analyses.filter((a) => a.status === 'PROCESSING').length
+);

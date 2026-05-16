@@ -36,7 +36,14 @@
         routerLink="/bike-fit"
         routerLinkActive="active-link"
       >
-        <mat-icon matListItemIcon>straighten</mat-icon>
+        <mat-icon
+          matListItemIcon
+          [matBadge]="processingCount() || null"
+          matBadgeColor="warn"
+          matBadgeSize="small"
+          [matBadgeHidden]="processingCount() === 0"
+          class="nav-icon-badge"
+        >straighten</mat-icon>
         <span matListItemTitle>Bike Fit</span>
       </a>
       <a

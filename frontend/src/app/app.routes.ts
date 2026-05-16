@@ -22,6 +22,8 @@ export const routes: Routes = [
       provideEffects(SyncEffects),
       provideState(RIDES_FEATURE_KEY, ridesReducer),
       provideEffects(RidesEffects),
+      provideState(BIKE_FIT_FEATURE_KEY, bikeFitReducer),
+      provideEffects(BikeFitEffects),
     ],
     loadComponent: () =>
       import('./features/shell/shell.component').then((m) => m.ShellComponent),
@@ -76,10 +78,6 @@ export const routes: Routes = [
       },
       {
         path: 'bike-fit',
-        providers: [
-          provideState(BIKE_FIT_FEATURE_KEY, bikeFitReducer),
-          provideEffects(BikeFitEffects),
-        ],
         loadComponent: () =>
           import('./features/bike-fit/bike-fit-list/bike-fit-list.component').then(
             (m) => m.BikeFitListComponent
@@ -87,10 +85,6 @@ export const routes: Routes = [
       },
       {
         path: 'bike-fit/:id',
-        providers: [
-          provideState(BIKE_FIT_FEATURE_KEY, bikeFitReducer),
-          provideEffects(BikeFitEffects),
-        ],
         loadComponent: () =>
           import('./features/bike-fit/bike-fit-detail/bike-fit-detail.component').then(
             (m) => m.BikeFitDetailComponent

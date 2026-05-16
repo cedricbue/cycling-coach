@@ -62,3 +62,12 @@
   background-color: #f5f7fa;
   overflow-y: auto;
 }
+
+.nav-icon-badge .mat-badge-content {
+  animation: badge-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes badge-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.7; transform: scale(1.15); }
+}

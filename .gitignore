@@ -21,6 +21,7 @@ frontend/src/app/core/api/
 
 # Data
 data/session.csv
+data/bike-fit/*
 
 # SQLite
 *.db
