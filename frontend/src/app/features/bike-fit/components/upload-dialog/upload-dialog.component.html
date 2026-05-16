@@ -2,13 +2,25 @@
 
 <mat-dialog-content>
   <div class="upload-form">
-    <div class="file-input-row">
-      <button mat-stroked-button (click)="fileInput.click()" type="button">
-        <mat-icon>upload_file</mat-icon>
-        Choose Video
-      </button>
-      <span class="filename">{{ selectedFile()?.name ?? 'No file selected' }}</span>
+    <div
+      class="drop-zone"
+      [class.drag-over]="dragOver()"
+      [class.has-file]="selectedFile()"
+      (dragover)="onDragOver($event)"
+      (dragleave)="onDragLeave($event)"
+      (drop)="onDrop($event)"
+      (click)="fileInput.click()"
+    >
       <input #fileInput type="file" accept="video/*" hidden (change)="onFileSelected($event)" />
+      @if (selectedFile(); as f) {
+        <mat-icon class="drop-icon">check_circle</mat-icon>
+        <span class="drop-filename">{{ f.name }}</span>
+        <span class="drop-hint">Click or drop to replace</span>
+      } @else {
+        <mat-icon class="drop-icon">video_file</mat-icon>
+        <span class="drop-label">Drop video here</span>
+        <span class="drop-hint">or click to browse</span>
+      }
     </div>
 
     <mat-form-field appearance="outline">

@@ -27,6 +27,7 @@ export interface UploadDialogResult {
     MatIconModule,
   ],
   templateUrl: './upload-dialog.component.html',
+  styleUrl: './upload-dialog.component.scss',
 })
 export class UploadDialogComponent {
   private readonly dialogRef = inject(MatDialogRef<UploadDialogComponent>);
@@ -35,11 +36,34 @@ export class UploadDialogComponent {
   poseModel = signal('mediapipe');
   mediapipeComplexity = signal(1);
   device = signal('auto');
+  dragOver = signal(false);
 
   onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
     if (input.files?.length) {
       this.selectedFile.set(input.files[0]);
+    }
+  }
+
+  onDragOver(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.dragOver.set(true);
+  }
+
+  onDragLeave(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.dragOver.set(false);
+  }
+
+  onDrop(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.dragOver.set(false);
+    const file = event.dataTransfer?.files[0];
+    if (file && file.type.startsWith('video/')) {
+      this.selectedFile.set(file);
     }
   }
 
