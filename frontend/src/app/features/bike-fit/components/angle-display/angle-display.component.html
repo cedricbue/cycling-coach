@@ -1,14 +1,15 @@
 <div class="angle-list">
   @for (angle of angles(); track angle.name) {
     @let selected = selectedNames().has(angle.name);
-    @let pos = crankPos(angle.name);
+    @let range    = effectiveRange(angle.name);
+    @let pos      = crankPos(angle.name);
     <div
       class="angle-row"
-      [class]="angleClass(angle)"
+      [class]="angleStatus(angle)"
       [class.dimmed]="selectedNames().size > 0 && !selected"
       [style.--c]="angleColor(angle.name)"
       (click)="nameToggled.emit(angle.name)"
-      [matTooltip]="'Optimal: ' + angle.min + '–' + angle.max + angle.unit + (angle.note ? ' · ' + angle.note : '')"
+      [matTooltip]="'Optimal (' + riderProfile() + '): ' + range.min + '–' + range.max + angle.unit + (angle.note ? ' · ' + angle.note : '')"
     >
       <div class="accent-bar" [class.active]="selected"></div>
 
@@ -18,7 +19,7 @@
           <span class="crank-badge" [matTooltip]="pos.tip">{{ pos.label }}</span>
         </div>
         <div class="row-bottom">
-          <span class="angle-range">{{ angle.min }}–{{ angle.max }}{{ angle.unit }}</span>
+          <span class="angle-range">{{ range.min }}–{{ range.max }}{{ angle.unit }}</span>
           <div class="angle-value">
             @if (angle.value !== null) {
               {{ angle.value | number:'1.0-0' }}{{ angle.unit }}

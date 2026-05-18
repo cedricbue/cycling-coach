@@ -9,7 +9,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { BikeFitActions } from '../+state/bike-fit.actions';
 import { selectDetail, selectDetailError, selectDetailLoading } from '../+state/bike-fit.selectors';
 import { VideoLandmarksPlayerComponent } from '../components/video-landmarks-player/video-landmarks-player.component';
-import { AngleDisplayComponent, BikeAngle } from '../components/angle-display/angle-display.component';
+import { AngleDisplayComponent, BikeAngle, RiderProfile } from '../components/angle-display/angle-display.component';
 
 const ALL_ANGLE_NAMES = ['Knee Angle', 'Hip Angle', 'Torso Angle', 'Elbow Angle', 'Ankle Angle'];
 
@@ -42,6 +42,7 @@ export class BikeFitDetailComponent implements OnInit, OnDestroy {
 
   // Selecting an angle = showing it on video. Checkbox = select/deselect all.
   readonly selectedAngleNames = signal<Set<string>>(new Set(ALL_ANGLE_NAMES));
+  readonly riderProfile = signal<RiderProfile>('endurance');
   readonly allSelected  = computed(() => this.selectedAngleNames().size === ALL_ANGLE_NAMES.length);
   readonly someSelected = computed(() => this.selectedAngleNames().size > 0 && !this.allSelected());
 

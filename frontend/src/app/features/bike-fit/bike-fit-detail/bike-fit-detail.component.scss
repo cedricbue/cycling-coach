@@ -26,11 +26,41 @@
 
 .angles-header {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 14px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
 
   mat-checkbox { font-size: 15px; font-weight: 600; }
+}
+
+.profile-toggle {
+  display: flex;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.profile-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  border: none;
+  background: transparent;
+  color: #888;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+
+  &.active {
+    background: #1976d2;
+    color: #fff;
+  }
+
+  &:not(.active):hover {
+    background: #f0f0f0;
+    color: #333;
+  }
 }
 
 .accuracy-note {

@@ -88,11 +88,10 @@
         >
           @if (uploading()) {
             <mat-spinner diameter="18" />
-            Uploading…
           } @else {
             <mat-icon>upload</mat-icon>
-            Analyze
           }
+          {{ uploading() ? 'Uploading…' : 'Analyze' }}
         </button>
 
         @if (uploadError()) {

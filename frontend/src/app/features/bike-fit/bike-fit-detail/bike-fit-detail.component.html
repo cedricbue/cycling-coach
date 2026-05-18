@@ -29,12 +29,19 @@
             color="primary">
             Bike Fit Angles
           </mat-checkbox>
-          <span class="accuracy-note">±3–5° knee, ±5–8° torso/hip</span>
+          <div class="profile-toggle">
+            <button class="profile-btn" [class.active]="riderProfile() === 'endurance'"
+                    (click)="riderProfile.set('endurance')">Endurance</button>
+            <button class="profile-btn" [class.active]="riderProfile() === 'race'"
+                    (click)="riderProfile.set('race')">Race</button>
+          </div>
         </div>
+        <span class="accuracy-note">±3–5° knee, ±5–8° torso/hip</span>
 
         <app-angle-display
           [angles]="angles()"
           [selectedNames]="selectedAngleNames()"
+          [riderProfile]="riderProfile()"
           (nameToggled)="onAngleToggled($event)"
         />
       </div>
